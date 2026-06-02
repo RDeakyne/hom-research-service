@@ -9,7 +9,8 @@ import httpx
 
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"}
 CR = "https://api.censusreporter.org/1.0/data/show/latest"
-TABLES = "B25077,B25003,B25024,B19013,B19001,B15003,B11001,B01001"
+# B19054 = households with interest/dividend/net-rental income (net-worth proxy: asset-holders, incl. retirees)
+TABLES = "B25077,B25003,B25024,B19013,B19001,B19054,B15003,B11001,B01001"
 
 
 def _clamp(x, lo, hi):
@@ -55,6 +56,14 @@ def _pct(d, num_codes, den_code):
     return round(100 * num / den, 1)
 
 
+def pct_income_ge(d, threshold):
+    """% of households at/above the income threshold (B19001 brackets)."""
+    BR = {150000: ["B19001016", "B19001017"],
+          100000: ["B19001014", "B19001015", "B19001016", "B19001017"],
+          75000:  ["B19001013", "B19001014", "B19001015", "B19001016", "B19001017"]}
+    return _pct(d, BR.get(threshold, BR[150000]), "B19001001")
+
+
 def fetch_zip(zip_code: str):
     """Fetch census + centroid once (so the pipeline can pick a market-aware threshold before scoring)."""
     d = fetch_census(zip_code)
@@ -73,9 +82,8 @@ def compute_row(fetched: dict, income_threshold: int):
     pct_own = _pct(d, ["B25003002"], "B25003001")                    # owner-occupied
     pct_det = _pct(d, ["B25024002"], "B25024001")                    # 1-unit detached
     income = d.get("B19013001") or 0                                 # median HH income
-    # income brackets: 016=$150-199,999, 017=$200k+  -> approx >= $175k
-    pct_175 = _pct(d, ["B19001017"], "B19001001") + 0.5 * _pct(d, ["B19001016"], "B19001001")
-    pct_175 = round(pct_175, 1)
+    pct_inc = pct_income_ge(d, income_threshold)                     # % HH at/above income threshold
+    pct_invest = _pct(d, ["B19054002"], "B19054001")                 # % HH w/ investment income (net-worth proxy)
     pct_bach = _pct(d, ["B15003022", "B15003023", "B15003024", "B15003025"], "B15003001")
     pct_marr = _pct(d, ["B11001003"], "B11001001")                   # married-couple households
     # ages 35-74: male 013-022, female 037-046
@@ -83,23 +91,22 @@ def compute_row(fetched: dict, income_threshold: int):
     female = [f"B01001{n:03d}" for n in range(37, 47)]
     age_share = _pct(d, male + female, "B01001001")
 
-    # thresholds scale with income_threshold tier
-    val_floor = 500000 if income_threshold >= 175000 else (300000 if income_threshold >= 100000 else 200000)
-    inc_full = 30 if income_threshold >= 175000 else 20             # % of HH at threshold for full marks
-
-    s_income = 25 * _clamp(pct_175 / inc_full, 0, 1) if income_threshold >= 175000 else \
-        25 * _clamp(_pct(d, ["B19001014", "B19001015", "B19001016", "B19001017"], "B19001001") / 40, 0, 1)
-    s_value = 20 if value >= val_floor else _clamp(20 * (value - val_floor / 2) / (val_floor / 2), 0, 20)
+    val_target = 600000 if income_threshold >= 150000 else 400000
+    # Income fit (20): ability to pay from current income.
+    s_income = 20 * _clamp(pct_inc / 30, 0, 1)
+    # Net-worth proxy (25): home equity + investment-income prevalence. Credits HIGH-net-worth /
+    # FIXED-income households (e.g. retirees) that a pure income score would wrongly penalize.
+    s_networth = 25 * (0.6 * _clamp(value / val_target, 0, 1) + 0.4 * _clamp(pct_invest / 50, 0, 1))
     s_own = 15 if pct_own >= 90 else _clamp(15 * (pct_own - 50) / 40, 0, 15)
     s_edu = 15 if pct_bach >= 60 else _clamp(15 * (pct_bach - 25) / 35, 0, 15)
     s_marr = 10 if pct_marr >= 65 else _clamp(10 * (pct_marr - 35) / 30, 0, 10)
     s_det = 10 if pct_det >= 80 else _clamp(10 * (pct_det - 40) / 40, 0, 10)
     s_age = 5 if age_share >= 50 else _clamp(5 * (age_share - 35) / 20, 0, 5)
-    icp = round(s_income + s_value + s_own + s_edu + s_marr + s_det + s_age, 1)
+    icp = round(s_income + s_networth + s_own + s_edu + s_marr + s_det + s_age, 1)
 
     return {
         "zip": zip_code, "area": area,
-        "pct_households_income": pct_175, "median_home_value": int(value),
+        "pct_households_income": round(pct_inc, 1), "median_home_value": int(value),
         "pct_owner_occupied": pct_own, "pct_bachelors": pct_bach, "pct_married": pct_marr,
         "pct_detached": pct_det, "age_35_75_share": age_share, "icp_match_score": icp,
         "lat": lat, "lng": lng,
