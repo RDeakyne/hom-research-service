@@ -16,6 +16,15 @@ try:
 except Exception:
     SOI = {}
 
+# Zillow Home Value Index (ZHVI) per zip — CURRENT market home values (preprocessed via
+# zillow_preprocess.py). More current than Census's lagged self-reported values. Census B25077
+# is the fallback when a zip isn't in Zillow.
+try:
+    with open(os.path.join(os.path.dirname(__file__), "zillow_zhvi.json")) as _f:
+        ZILLOW = json.load(_f)
+except Exception:
+    ZILLOW = {}
+
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"}
 CR = "https://api.censusreporter.org/1.0/data/show/latest"
 # B19054 = households with interest/dividend/net-rental income (net-worth proxy: asset-holders, incl. retirees)
@@ -85,14 +94,14 @@ def fetch_zip(zip_code: str):
         return None
     lat, lng, area = fetch_centroid(zip_code)
     return {"zip": zip_code, "raw": d, "lat": lat, "lng": lng, "area": area,
-            "value": d.get("B25077001") or 0}
+            "value": ZILLOW.get(zip_code) or (d.get("B25077001") or 0)}  # Zillow current value, Census fallback
 
 
 def compute_row(fetched: dict, income_threshold: int):
     """Score a pre-fetched zip. income_threshold e.g. 175000 (premium) or 100000 (floor)."""
     d = fetched["raw"]; lat = fetched["lat"]; lng = fetched["lng"]
     zip_code = fetched["zip"]; area = fetched["area"]
-    value = d.get("B25077001") or 0                                  # median home value
+    value = ZILLOW.get(zip_code) or d.get("B25077001") or 0          # Zillow current home value (Census fallback)
     pct_own = _pct(d, ["B25003002"], "B25003001")                    # owner-occupied
     pct_det = _pct(d, ["B25024002"], "B25024001")                    # 1-unit detached
     income = d.get("B19013001") or 0                                 # median HH income
