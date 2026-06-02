@@ -63,18 +63,26 @@ def _strip_internal(z):
 
 
 def _bucket(scored):
-    """FUND + expansion buckets. Absolute (>=80) for premium markets; but when a modest market has
-    fewer than 5 zips clearing 80, FUND becomes the client's BEST cluster (top of their own market,
-    within 18 pts of the top zip and >= 55) so every client gets a non-empty Broad audience to target.
-    Expansion = the next tier worth testing (>= 50, not already FUND)."""
+    """Percentile tiers + quality guardrails (per Ricky):
+      Broad     = top 50% of the client's zips, PLUS any zip scoring >=80 (never drop a clearly-great
+                  zip), MINUS any zip <50 (never fund a genuinely weak one).
+      Expansion = the 50-75% band, >=50, not already in Broad.
+      (Excluded = everything else — computed by the caller and stored as excluded_zips.)"""
     s = sorted(scored, key=lambda x: -x["icp_match_score"])
-    fund = [z for z in s if z["icp_match_score"] >= 80]
-    if len(fund) < 5 and s:
-        cut = max(55, s[0]["icp_match_score"] - 18)
-        fund = [z for z in s if z["icp_match_score"] >= cut]
-    fz = {z["zip"] for z in fund}
-    expansion = [z for z in s if z["zip"] not in fz and z["icp_match_score"] >= 50]
-    return fund, expansion
+    n = len(s)
+    if not n:
+        return [], []
+    half = max(1, round(n * 0.50))
+    three_q = max(half, round(n * 0.75))
+    broad = list(s[:half])
+    bset = {z["zip"] for z in broad}
+    for z in s:                                                # guardrail: always keep any zip >= 80
+        if z["icp_match_score"] >= 80 and z["zip"] not in bset:
+            broad.append(z); bset.add(z["zip"])
+    broad = [z for z in broad if z["icp_match_score"] >= 50]   # guardrail: never fund a zip < 50
+    bset = {z["zip"] for z in broad}
+    expansion = [z for z in s[:three_q] if z["zip"] not in bset and z["icp_match_score"] >= 50]
+    return broad, expansion
 
 
 def run(client_id: str, log=print):
@@ -106,10 +114,9 @@ def run(client_id: str, log=print):
     # can include any zip the client knows performs, even if its ICP fit is lower.
     _picked = {z["zip"] for z in fund} | {z["zip"] for z in expansion}
     excluded = [z for z in sorted(scored, key=lambda x: -x["icp_match_score"]) if z["zip"] not in _picked]
-    # High-Quality = top ~25% of FUND by income -> price
-    hq_rank = sorted(fund, key=lambda x: (-x["pct_households_income"], -x["median_home_value"]))
-    n_hq = max(4, math.ceil(len(fund) * 0.25)) if fund else 0
-    hq = hq_rank[:n_hq]
+    # High-Quality = top ~25% of the client's zips by ICP score (a subset of Broad)
+    n_hq = max(4, round(len(scored) * 0.25)) if fund else 0
+    hq = sorted(fund, key=lambda x: -x["icp_match_score"])[:n_hq]
 
     city, region = _city_region(cl.get("business_address"), "")
     base44.set_status(client_id, "Running", "Researching competitors, reviews, homeowner concerns...")
