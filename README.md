@@ -44,3 +44,4 @@ Add to the client view (paste into Base44's AI builder):
 - Competitor **ad teardown** stays manual (Ads Library isn't machine-readable) — those fields are left blank for the team.
 - **Reddit** is often crawler-blocked; the concerns step uses web search across Reddit + forums and flags thin sourcing rather than fabricating.
 - High-Quality home-age weighting (1985–2010) is approximated by income+price ranking here; refine in `pipeline.py` if you add year-built (B25034) to `scoring.py`.
+- **Wealth signal:** scoring blends Census (income, home value, etc.) with **IRS SOI ZIP data** (`soi_zip.json`) — dollar amounts of investment + retirement income per return, a strong net-worth proxy that catches wealthy/fixed-income retirees. To refresh annually when the IRS releases a new vintage: download `https://www.irs.gov/pub/irs-soi/<YY>zpallagi.csv` and run `python soi_preprocess.py` (regenerates `soi_zip.json`).

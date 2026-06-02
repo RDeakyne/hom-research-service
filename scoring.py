@@ -5,7 +5,16 @@ ICP-Match (0-100): income fit 25, home value 20, owner-occ 15, education 15, mar
 Buckets: FUND 80-100 (Broad), TEST 60-79 (Expansion), EXCLUDE <60.
 High-Quality = top ~25% of FUND by income -> price -> home-age (handled in pipeline).
 """
-import httpx
+import os, json, httpx
+
+# IRS SOI per-zip wealth/income lookup (preprocessed from 22zpallagi.csv via soi_preprocess.py).
+# Gives DOLLAR magnitudes of investment + retirement income per return — a far stronger net-worth
+# signal than ACS's binary "has investment income" flag. Falls back to ACS-only if a zip is absent.
+try:
+    with open(os.path.join(os.path.dirname(__file__), "soi_zip.json")) as _f:
+        SOI = json.load(_f)
+except Exception:
+    SOI = {}
 
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"}
 CR = "https://api.censusreporter.org/1.0/data/show/latest"
@@ -92,11 +101,19 @@ def compute_row(fetched: dict, income_threshold: int):
     age_share = _pct(d, male + female, "B01001001")
 
     val_target = 600000 if income_threshold >= 150000 else 400000
-    # Income fit (20): ability to pay from current income.
-    s_income = 20 * _clamp(pct_inc / 30, 0, 1)
-    # Net-worth proxy (25): home equity + investment-income prevalence. Credits HIGH-net-worth /
-    # FIXED-income households (e.g. retirees) that a pure income score would wrongly penalize.
-    s_networth = 25 * (0.6 * _clamp(value / val_target, 0, 1) + 0.4 * _clamp(pct_invest / 50, 0, 1))
+    soi = SOI.get(zip_code)
+    if soi:
+        # Income fit (20): blend ACS %>=threshold with IRS %returns>=$200k AGI (sharper on high earners).
+        s_income = 20 * _clamp(0.5 * _clamp(pct_inc / 30, 0, 1) + 0.5 * _clamp(soi["p200k"] / 25, 0, 1), 0, 1)
+        # Net-worth proxy (25): home equity + IRS investment-income $ + retirement-distribution $ per
+        # return. The dollar magnitudes catch wealthy/fixed-income retirees ACS can't see.
+        s_networth = 25 * (0.4 * _clamp(value / val_target, 0, 1)
+                           + 0.4 * _clamp(soi["inv"] / 25000, 0, 1)
+                           + 0.2 * _clamp(soi["ret"] / 25000, 0, 1))
+    else:
+        # Fallback: ACS only (zip absent from SOI)
+        s_income = 20 * _clamp(pct_inc / 30, 0, 1)
+        s_networth = 25 * (0.6 * _clamp(value / val_target, 0, 1) + 0.4 * _clamp(pct_invest / 50, 0, 1))
     s_own = 15 if pct_own >= 90 else _clamp(15 * (pct_own - 50) / 40, 0, 15)
     s_edu = 15 if pct_bach >= 60 else _clamp(15 * (pct_bach - 25) / 35, 0, 15)
     s_marr = 10 if pct_marr >= 65 else _clamp(10 * (pct_marr - 35) / 30, 0, 10)
