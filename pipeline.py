@@ -12,21 +12,13 @@ def _zips(raw: str):
     return out
 
 
-def _job_threshold(avg_job):
-    try:
-        v = float(re.sub(r"[^\d.]", "", str(avg_job)) or 0)
-    except Exception:
-        v = 0
-    return 150000 if v >= 5000 else 0  # else let market + $100k floor decide
-
-
-def _derive_threshold(values, avg_job):
-    """Market-aware: premium ($150k) if job size is high OR the market's home values are high.
-    Never below the $100k ICP floor (portfolio-wide minimum)."""
+def _derive_threshold(values, avg_job=None):
+    """Market-driven HHI threshold (per Ricky: market-adaptive, $100K floor). $150K in premium
+    markets (60th-percentile home value >= $450K), else the $100K floor. Job size does NOT force
+    premium — a modest market like Baton Rouge stays at $100K even for a higher-ticket painter."""
     vals = sorted(v for v in values if v)
     p60 = vals[min(len(vals) - 1, int(len(vals) * 0.6))] if vals else 0
-    mkt = 150000 if p60 >= 650000 else 100000
-    return max(_job_threshold(avg_job), mkt, 100000)
+    return 150000 if p60 >= 450000 else 100000
 
 
 def _city_region(addr: str, sample_area: str):
