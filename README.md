@@ -1,5 +1,7 @@
 # HOM Research Intelligence — Service
 
+> **Single source of truth:** this folder (`research-service/` in the HOM monorepo) is the canonical code you edit. Render builds from a public mirror repo (`RDeakyne/hom-research-service`). To ship a change: edit here → run **`./deploy.sh`** → Render auto-redeploys. Never hand-edit the mirror. Live service: `srv-d8f4dj8g4nts738guetg` → https://hom-research-intelligence.onrender.com
+
 The backend that powers the **"Run Research"** button in the Base44 client portal. It does everything the `painter-market-research` skill does, autonomously, and writes the result back into each client's Research Intelligence tab.
 
 ```
