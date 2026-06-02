@@ -41,6 +41,11 @@ def health():
 def run(req: RunReq, bg: BackgroundTasks, x_run_token: str = Header(default="")):
     if RUN_TOKEN and x_run_token != RUN_TOKEN:
         raise HTTPException(401, "bad run token")
-    base44.set_status(req.client_id, "Running", "Queued...")
+    # Best-effort status write — a transient Base44 blip here must NOT crash the button.
+    # The background job (which retries) will set status when it runs.
+    try:
+        base44.set_status(req.client_id, "Running", "Queued...")
+    except Exception:
+        pass
     bg.add_task(_job, req.client_id)
     return {"status": "Running", "client_id": req.client_id}

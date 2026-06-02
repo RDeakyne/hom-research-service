@@ -1,9 +1,10 @@
 """Base44 REST client for the HOM Client Portal.
-Key gotcha discovered in testing: Base44 sits behind Cloudflare — requests MUST send a
-browser User-Agent or writes (POST/PUT) return Cloudflare error 1010. Reads tolerate it,
-writes do not. So we always send a Mozilla UA.
+Key gotcha: Base44 sits behind Cloudflare — requests MUST send a browser User-Agent or writes
+(POST/PUT) return Cloudflare error 1010. Reads tolerate it, writes do not. So we always send a Mozilla UA.
+Also: Base44 has transient 5xx blips (503s) — every request retries with backoff so a hiccup doesn't
+crash a run. Persistent failures still raise (caller decides).
 """
-import os, httpx
+import os, time, httpx
 
 APP_ID = os.environ["BASE44_APP_ID"]
 KEY = os.environ["BASE44_API_KEY"]
@@ -16,46 +17,56 @@ HEADERS = {
 ENTITY = "ResearchIntelligence"
 
 
-def _client():
-    return httpx.Client(headers=HEADERS, timeout=40)
+def _request(method: str, url: str, retries: int = 5, **kw):
+    """Issue a request, retrying transient 5xx + network errors (Base44/Cloudflare blips).
+    Returns the response (caller calls raise_for_status for 4xx). Raises on persistent failure."""
+    last = None
+    for attempt in range(retries):
+        try:
+            with httpx.Client(headers=HEADERS, timeout=40) as c:
+                r = c.request(method, url, **kw)
+            if r.status_code < 500:
+                return r
+            last = r
+        except httpx.HTTPError as e:
+            last = e
+        time.sleep(0.9 * (attempt + 1))   # backoff
+    if isinstance(last, httpx.Response):
+        last.raise_for_status()
+    raise last if last else RuntimeError(f"{method} {url} failed")
 
 
 def get_client_record(client_id: str) -> dict:
-    with _client() as c:
-        r = c.get(f"{BASE}/entities/Client/{client_id}")
-        r.raise_for_status()
-        return r.json()
+    r = _request("GET", f"{BASE}/entities/Client/{client_id}")
+    r.raise_for_status()
+    return r.json()
 
 
 def get_research_record(client_id: str):
-    with _client() as c:
-        r = c.get(f"{BASE}/entities/{ENTITY}", params={"client_id": client_id})
-        r.raise_for_status()
-        data = r.json()
-        return data[0] if isinstance(data, list) and data else None
+    r = _request("GET", f"{BASE}/entities/{ENTITY}", params={"client_id": client_id})
+    r.raise_for_status()
+    data = r.json()
+    return data[0] if isinstance(data, list) and data else None
 
 
 def upsert_research(client_id: str, payload: dict) -> dict:
     """Create or update the single ResearchIntelligence record for a client. Verifies (Gate 1)."""
     payload = {**payload, "client_id": client_id}
     existing = get_research_record(client_id)
-    with _client() as c:
-        if existing:
-            r = c.put(f"{BASE}/entities/{ENTITY}/{existing['id']}", json=payload)
-        else:
-            r = c.post(f"{BASE}/entities/{ENTITY}", json=payload)
-        r.raise_for_status()
-    check = get_research_record(client_id)  # Gate 1: read back
-    return check or {}
+    if existing:
+        r = _request("PUT", f"{BASE}/entities/{ENTITY}/{existing['id']}", json=payload)
+    else:
+        r = _request("POST", f"{BASE}/entities/{ENTITY}", json=payload)
+    r.raise_for_status()
+    return get_research_record(client_id) or {}
 
 
 def set_status(client_id: str, status: str, note: str = ""):
-    """Flip the run status so the UI can show Running / Done / Error.
-    Stored on the ResearchIntelligence record (status, status_note fields)."""
+    """Flip the run status so the UI can show Running / Done / Error. Best-effort — callers in the
+    request path should tolerate failure (a Base44 blip shouldn't crash the endpoint)."""
     existing = get_research_record(client_id)
     body = {"client_id": client_id, "status": status, "status_note": note}
-    with _client() as c:
-        if existing:
-            c.put(f"{BASE}/entities/{ENTITY}/{existing['id']}", json={**existing, **body})
-        else:
-            c.post(f"{BASE}/entities/{ENTITY}", json=body)
+    if existing:
+        _request("PUT", f"{BASE}/entities/{ENTITY}/{existing['id']}", json={**existing, **body}).raise_for_status()
+    else:
+        _request("POST", f"{BASE}/entities/{ENTITY}", json=body).raise_for_status()
