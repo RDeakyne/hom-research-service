@@ -109,9 +109,10 @@ def compute_row(fetched: dict, income_threshold: int):
     pct_invest = _pct(d, ["B19054002"], "B19054001")                 # % HH w/ investment income (net-worth proxy)
     pct_bach = _pct(d, ["B15003022", "B15003023", "B15003024", "B15003025"], "B15003001")
     pct_marr = _pct(d, ["B11001003"], "B11001001")                   # married-couple households
-    # ages 35-74: male 013-022, female 037-046
-    male = [f"B01001{n:03d}" for n in range(13, 23)]
-    female = [f"B01001{n:03d}" for n in range(37, 47)]
+    # age 40-70 buyer-propensity band: male 014-021, female 038-045 (a stronger wealth/buyer-capacity
+    # signal than education, per HOM)
+    male = [f"B01001{n:03d}" for n in range(14, 22)]
+    female = [f"B01001{n:03d}" for n in range(38, 46)]
     age_share = _pct(d, male + female, "B01001001")
 
     val_target = 600000 if income_threshold >= 150000 else 400000
@@ -131,10 +132,11 @@ def compute_row(fetched: dict, income_threshold: int):
     # is penalized for being strong in only one.
     s_capacity = 45 * max(income_fit, networth_fit)
     s_own = 15 if pct_own >= 90 else _clamp(15 * (pct_own - 50) / 40, 0, 15)
-    s_edu = 15 if pct_bach >= 60 else _clamp(15 * (pct_bach - 25) / 35, 0, 15)
-    s_marr = 10 if pct_marr >= 65 else _clamp(10 * (pct_marr - 35) / 30, 0, 10)
+    s_edu = 7.5 if pct_bach >= 60 else _clamp(7.5 * (pct_bach - 25) / 35, 0, 7.5)
+    s_marr = 7.5 if pct_marr >= 65 else _clamp(7.5 * (pct_marr - 35) / 30, 0, 7.5)
     s_det = 10 if pct_det >= 80 else _clamp(10 * (pct_det - 40) / 40, 0, 10)
-    s_age = 5 if age_share >= 50 else _clamp(5 * (age_share - 35) / 20, 0, 5)
+    # Age 40-70 buyer-propensity (15): a stronger wealth/buyer-capacity proxy than education.
+    s_age = 15 if age_share >= 45 else _clamp(15 * (age_share - 30) / 15, 0, 15)
     icp = round(s_capacity + s_own + s_edu + s_marr + s_det + s_age, 1)
 
     return {
