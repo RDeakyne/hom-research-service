@@ -2,7 +2,7 @@
 Returns immediately (202) and runs the pipeline in the background, updating the record's
 status field (Running -> Done / Error) so the portal UI can poll it.
 """
-import os
+import os, time, threading
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -30,6 +30,39 @@ def _job(client_id: str):
         pipeline.run(client_id)
     except Exception as e:
         base44.set_status(client_id, "Error", str(e)[:300])
+
+
+# --- Portal-triggered polling ---
+# The most robust trigger: the Base44 button just sets a ResearchIntelligence record's status to
+# "Requested" (a native Base44 write that can't fail with CORS/500). This loop polls Base44 server-side
+# and runs any requested research. No browser-to-service call, so the button never errors.
+POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "30"))
+
+
+def _poller():
+    while True:
+        try:
+            recs = base44._request("GET", f"{base44.BASE}/entities/{base44.ENTITY}",
+                                   params={"limit": 200}).json()
+            for r in (recs if isinstance(recs, list) else []):
+                if r.get("status") == "Requested" and r.get("client_id"):
+                    cid = r["client_id"]
+                    try:
+                        base44.set_status(cid, "Running", "Picked up from portal request...")  # claim it
+                        pipeline.run(cid)
+                    except Exception as e:
+                        try:
+                            base44.set_status(cid, "Error", str(e)[:250])
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+        time.sleep(POLL_SECONDS)
+
+
+@app.on_event("startup")
+def _start_poller():
+    threading.Thread(target=_poller, daemon=True).start()
 
 
 @app.get("/health")
