@@ -5,8 +5,11 @@ import base44, scoring, research
 
 
 def _zips(raw: str):
+    # Match 5-digit zips AND 4-digit ones — New England zips (e.g. 02492) often lose their leading
+    # zero when stored as numbers ("2492"), so zero-pad short matches back to 5 digits.
     seen, out = set(), []
-    for z in re.findall(r"\b\d{5}\b", raw or ""):
+    for m in re.findall(r"\b\d{4,5}\b", raw or ""):
+        z = m.zfill(5)
         if z not in seen:
             seen.add(z); out.append(z)
     return out
