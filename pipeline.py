@@ -102,6 +102,10 @@ def run(client_id: str, log=print):
         log(f"scored {s['zip']} ({s['area']}): {s['icp_match_score']}")
 
     fund, expansion = _bucket(scored)
+    # Everything else that was scored (below the expansion floor) — kept VISIBLE so the media buyer
+    # can include any zip the client knows performs, even if its ICP fit is lower.
+    _picked = {z["zip"] for z in fund} | {z["zip"] for z in expansion}
+    excluded = [z for z in sorted(scored, key=lambda x: -x["icp_match_score"]) if z["zip"] not in _picked]
     # High-Quality = top ~25% of FUND by income -> price
     hq_rank = sorted(fund, key=lambda x: (-x["pct_households_income"], -x["median_home_value"]))
     n_hq = max(4, math.ceil(len(fund) * 0.25)) if fund else 0
@@ -124,6 +128,7 @@ def run(client_id: str, log=print):
         "broad_zips": [_strip_internal(z) for z in fund],
         "hq_zips": [_strip_internal(z) for z in hq],
         "expansion_zips": [_strip_internal(z) for z in expansion],
+        "excluded_zips": [_strip_internal(z) for z in excluded],
         "broad_targeting": broad_t, "hq_targeting": hq_t,
         "audience_rationale": _rationale(income_threshold, len(fund), len(hq), len(expansion)),
         "top_concerns": homeowner_concerns,
