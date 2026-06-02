@@ -37,7 +37,7 @@ def health():
     return {"ok": True}
 
 
-@app.post("/run", status_code=202)
+@app.post("/run", status_code=200)   # 200 not 202 — some HTTP clients (e.g. the Base44 button) treat non-200 as an error
 def run(req: RunReq, bg: BackgroundTasks, x_run_token: str = Header(default="")):
     if RUN_TOKEN and x_run_token != RUN_TOKEN:
         raise HTTPException(401, "bad run token")
