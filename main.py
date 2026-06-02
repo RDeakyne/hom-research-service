@@ -7,10 +7,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, BackgroundTasks, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import base44, pipeline
 
 app = FastAPI(title="HOM Research Intelligence")
+# The Base44 button calls this from the browser, so allow cross-origin requests
+# (incl. the X-Run-Token header + the OPTIONS preflight).
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=False,
+    allow_methods=["*"], allow_headers=["*"],
+)
 RUN_TOKEN = os.environ.get("RUN_TOKEN", "")
 
 
