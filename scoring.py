@@ -5,7 +5,7 @@ ICP-Match (0-100): income fit 25, home value 20, owner-occ 15, education 15, mar
 Buckets: FUND 80-100 (Broad), TEST 60-79 (Expansion), EXCLUDE <60.
 High-Quality = top ~25% of FUND by income -> price -> home-age (handled in pipeline).
 """
-import os, json, httpx
+import os, json, time, httpx
 
 # IRS SOI per-zip wealth/income lookup (preprocessed from 22zpallagi.csv via soi_preprocess.py).
 # Gives DOLLAR magnitudes of investment + retirement income per return — a far stronger net-worth
@@ -26,22 +26,27 @@ def _clamp(x, lo, hi):
     return max(lo, min(hi, x))
 
 
-def fetch_census(zip_code: str):
-    """Return the estimate dict for a ZCTA, or None. Census Reporter is keyless; the
-    official api.census.gov now requires a key. S-tables are rejected here, so we use B-tables."""
+def fetch_census(zip_code: str, retries: int = 4):
+    """Return the estimate dict for a ZCTA, or None. Census Reporter is keyless (the official
+    api.census.gov now requires a key); S-tables are rejected here, so we use B-tables.
+    Retries transient failures — Census Reporter rate-limits rapid bursts, which was silently
+    dropping zips during multi-zip runs."""
     geo = f"86000US{zip_code}"
-    try:
-        with httpx.Client(timeout=30, headers=UA) as c:
-            r = c.get(CR, params={"table_ids": TABLES, "geo_ids": geo})
-            if r.status_code != 200:
-                return None
-            est = r.json().get("data", {}).get(geo, {})
-            out = {}
-            for t, blob in est.items():
-                out.update(blob.get("estimate", {}))
-            return out or None
-    except Exception:
-        return None
+    for attempt in range(retries):
+        try:
+            with httpx.Client(timeout=30, headers=UA) as c:
+                r = c.get(CR, params={"table_ids": TABLES, "geo_ids": geo})
+            if r.status_code == 200:
+                est = r.json().get("data", {}).get(geo, {})
+                out = {}
+                for t, blob in est.items():
+                    out.update(blob.get("estimate", {}))
+                if out:
+                    return out
+        except Exception:
+            pass
+        time.sleep(0.7 * (attempt + 1))   # backoff before retry
+    return None
 
 
 def fetch_centroid(zip_code: str):

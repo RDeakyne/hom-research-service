@@ -56,15 +56,30 @@ def _rationale(income_threshold, n_broad, n_hq, n_exp):
         f"Why these zips: every zip in the serviceable area was scored 0-100 on how well its households match our Ideal Client Profile - not chosen by gut. "
         f"The biggest factor is financial capacity - the GREATER of household income ({inc}) OR net worth (home equity + IRS investment & retirement income per return). A household qualifies whether they have a high paycheck OR accumulated wealth, so neither a high-earning young family nor a wealthy retiree on a fixed income is penalized. "
         f"It also weighs homeownership, college education, married-couple families, detached single-family homes, and ages 35-75.\n\n"
-        f"BROAD - the {n_broad} zips scoring 80+ (FUND): the core audience. Affluent, high-owner-occupancy, detached-home neighborhoods where the ideal customer lives.\n\n"
+        f"BROAD - the {n_broad} best-matched zips (your core audience): the strongest fit for the ideal client in YOUR market - affluent-for-the-area, high-owner-occupancy, detached-home neighborhoods. (In a premium metro these all clear an absolute bar; in a more modest market they're the top of your own market.)\n\n"
         f"HIGH-QUALITY - the top {n_hq} of those by income, home price, and ideal home age (built ~1985-2010: old enough to need repainting, new enough to skip lead paint). Tighter age band (43-58) + intent layering for the lowest cost per estimate.\n\n"
-        f"EXPANSION - the next-best {n_exp} zips (ICP-Match 60-79), ranked. Add these in score order when you want more reach - broaden by adding the best remaining zips first, not by loosening targeting (which protects cost per estimate).\n\n"
-        f"Zips scoring under 60 (renter-heavy, apartment-dense, or lower-income areas) were excluded - they'd attract the wrong homeowner and waste spend."
+        f"EXPANSION - the next-best {n_exp} zips, ranked. Add these in score order when you want more reach - broaden by adding the best remaining zips first, not by loosening targeting (which protects cost per estimate).\n\n"
+        f"The lowest-scoring zips (renter-heavy, apartment-dense, or lower income/net-worth areas) were excluded - they'd attract the wrong homeowner and waste spend."
     )
 
 
 def _strip_internal(z):
     return {k: v for k, v in z.items() if not k.startswith("_")}
+
+
+def _bucket(scored):
+    """FUND + expansion buckets. Absolute (>=80) for premium markets; but when a modest market has
+    fewer than 5 zips clearing 80, FUND becomes the client's BEST cluster (top of their own market,
+    within 18 pts of the top zip and >= 55) so every client gets a non-empty Broad audience to target.
+    Expansion = the next tier worth testing (>= 50, not already FUND)."""
+    s = sorted(scored, key=lambda x: -x["icp_match_score"])
+    fund = [z for z in s if z["icp_match_score"] >= 80]
+    if len(fund) < 5 and s:
+        cut = max(55, s[0]["icp_match_score"] - 18)
+        fund = [z for z in s if z["icp_match_score"] >= cut]
+    fz = {z["zip"] for z in fund}
+    expansion = [z for z in s if z["zip"] not in fz and z["icp_match_score"] >= 50]
+    return fund, expansion
 
 
 def run(client_id: str, log=print):
@@ -91,8 +106,7 @@ def run(client_id: str, log=print):
     for s in scored:
         log(f"scored {s['zip']} ({s['area']}): {s['icp_match_score']}")
 
-    fund = sorted([z for z in scored if z["icp_match_score"] >= 80], key=lambda x: -x["icp_match_score"])
-    expansion = sorted([z for z in scored if 60 <= z["icp_match_score"] < 80], key=lambda x: -x["icp_match_score"])
+    fund, expansion = _bucket(scored)
     # High-Quality = top ~25% of FUND by income -> price
     hq_rank = sorted(fund, key=lambda x: (-x["pct_households_income"], -x["median_home_value"]))
     n_hq = max(4, math.ceil(len(fund) * 0.25)) if fund else 0
