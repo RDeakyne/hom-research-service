@@ -129,6 +129,10 @@ def run(client_id: str, log=print):
     mlat = round(sum(a for a, _ in centroids) / len(centroids), 4) if centroids else None
     mlng = round(sum(b for _, b in centroids) / len(centroids), 4) if centroids else None
 
+    # Addressable homeowner households (ages 35-75) per tier — real Census counts summed across the
+    # tier's zips (one paint job per household, not per person).
+    _hh = lambda zs: sum(z.get("households_35_75", 0) for z in zs)
+
     payload = {
         "income_threshold": f"${income_threshold:,}",
         "metro_center_lat": mlat, "metro_center_lng": mlng,
@@ -136,14 +140,17 @@ def run(client_id: str, log=print):
         "hq_zips": [_strip_internal(z) for z in hq],
         "expansion_zips": [_strip_internal(z) for z in expansion],
         "excluded_zips": [_strip_internal(z) for z in excluded],
+        "broad_households": _hh(fund), "hq_households": _hh(hq),
+        "expansion_households": _hh(expansion), "excluded_households": _hh(excluded),
         "broad_targeting": broad_t, "hq_targeting": hq_t,
         "audience_rationale": _rationale(income_threshold, len(fund), len(hq), len(expansion)),
         "top_concerns": homeowner_concerns,
         "top_complaints": comps_complaints,
         "competitors": comps,
         "sources": "Demographics: Census ACS 5-yr via Census Reporter (B19001/B15003/B11001/B01001/B25077/B25003/B25024). "
+                   "Homeowner households (ages 35-75): Census B25007 (owner-occupied by age of householder). "
                    "Reviews & USPs: competitor websites + Google/Yelp/BBB. Concerns: Reddit/forums via web search (flag where thin). "
-                   "Competitor Meta ads = MANUAL CHECK. Audience counts = Census residents 35-74; pull reachable size from Meta Ads Manager.",
+                   "Competitor Meta ads = MANUAL CHECK. Household counts = Census owner-occupied, ages 35-75; pull reachable size from Meta Ads Manager.",
         "status": "Done", "status_note": f"{len(fund)} FUND / {len(expansion)} expansion / {len(scored)-len(fund)-len(expansion)} excluded",
     }
     base44.upsert_research(client_id, payload)

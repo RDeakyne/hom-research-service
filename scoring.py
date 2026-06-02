@@ -28,7 +28,9 @@ except Exception:
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"}
 CR = "https://api.censusreporter.org/1.0/data/show/latest"
 # B19054 = households with interest/dividend/net-rental income (net-worth proxy: asset-holders, incl. retirees)
-TABLES = "B25077,B25003,B25024,B19013,B19001,B19054,B15003,B11001,B01001"
+# B25007 = tenure by age of householder (owner-occupied households by age — for the addressable
+# homeowner-household estimate, ages 35-75).
+TABLES = "B25077,B25003,B25024,B19013,B19001,B19054,B15003,B11001,B01001,B25007"
 
 
 def _clamp(x, lo, hi):
@@ -115,6 +117,12 @@ def compute_row(fetched: dict, income_threshold: int):
     female = [f"B01001{n:03d}" for n in range(38, 46)]
     age_share = _pct(d, male + female, "B01001001")
 
+    # Addressable homeowner households, householder ages 35-75 (Census B25007, tenure by age of
+    # householder). A real Census household count — one paint job per household — not a per-person
+    # estimate. Brackets: 005=35-44, 006=45-54, 007=55-59, 008=60-64, 009=65-74.
+    households_35_75 = sum(d.get(c) or 0 for c in
+                           ["B25007005", "B25007006", "B25007007", "B25007008", "B25007009"])
+
     val_target = 600000 if income_threshold >= 150000 else 400000
     soi = SOI.get(zip_code)
     if soi:
@@ -144,6 +152,7 @@ def compute_row(fetched: dict, income_threshold: int):
         "pct_households_income": round(pct_inc, 1), "median_home_value": int(value),
         "pct_owner_occupied": pct_own, "pct_bachelors": pct_bach, "pct_married": pct_marr,
         "pct_detached": pct_det, "age_35_75_share": age_share, "icp_match_score": icp,
+        "households_35_75": int(households_35_75),
         "lat": lat, "lng": lng,
         # internal-only (not written to Base44): for HQ ranking + housing-age note
         "_median_income": int(income),
