@@ -72,9 +72,10 @@ def run(client_id: str, log=print):
     cl = base44.get_client_record(client_id)
     name = cl.get("name", "Client")
     services = cl.get("services_offered") or "Interior, Exterior, Cabinet painting"
-    zips = _zips(cl.get("service_areas", ""))
+    # Union of broad + high-quality zip fields — clients sometimes fill only one of them.
+    zips = _zips(f"{cl.get('service_areas') or ''} {cl.get('highest_quality_service_areas') or ''}")
     if not zips:
-        base44.set_status(client_id, "Error", "No service-area zips found on Company Info.")
+        base44.set_status(client_id, "Error", "No service-area zips found on Company Info (checked both the broad and high-quality fields).")
         return {"error": "no zips"}
 
     # Phase 2: fetch all zips once, pick a market-aware income threshold, then score (deterministic)
