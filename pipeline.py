@@ -54,7 +54,7 @@ def _rationale(income_threshold, n_broad, n_hq, n_exp):
     inc = f"${income_threshold:,}+"
     return (
         f"Why these zips: every zip in the serviceable area was scored 0-100 on how well its households match our Ideal Client Profile - not chosen by gut. "
-        f"The score weighs household income ({inc}) AND net worth - using IRS tax data per zip (investment-income and retirement-distribution dollars per return) plus home equity, so wealthy homeowners on a fixed income (e.g. retirees) still qualify even when their paycheck looks modest. "
+        f"The biggest factor is financial capacity - the GREATER of household income ({inc}) OR net worth (home equity + IRS investment & retirement income per return). A household qualifies whether they have a high paycheck OR accumulated wealth, so neither a high-earning young family nor a wealthy retiree on a fixed income is penalized. "
         f"It also weighs homeownership, college education, married-couple families, detached single-family homes, and ages 35-75.\n\n"
         f"BROAD - the {n_broad} zips scoring 80+ (FUND): the core audience. Affluent, high-owner-occupancy, detached-home neighborhoods where the ideal customer lives.\n\n"
         f"HIGH-QUALITY - the top {n_hq} of those by income, home price, and ideal home age (built ~1985-2010: old enough to need repainting, new enough to skip lead paint). Tighter age band (43-58) + intent layering for the lowest cost per estimate.\n\n"

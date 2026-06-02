@@ -103,23 +103,25 @@ def compute_row(fetched: dict, income_threshold: int):
     val_target = 600000 if income_threshold >= 150000 else 400000
     soi = SOI.get(zip_code)
     if soi:
-        # Income fit (20): blend ACS %>=threshold with IRS %returns>=$200k AGI (sharper on high earners).
-        s_income = 20 * _clamp(0.5 * _clamp(pct_inc / 30, 0, 1) + 0.5 * _clamp(soi["p200k"] / 25, 0, 1), 0, 1)
-        # Net-worth proxy (25): home equity + IRS investment-income $ + retirement-distribution $ per
-        # return. The dollar magnitudes catch wealthy/fixed-income retirees ACS can't see.
-        s_networth = 25 * (0.4 * _clamp(value / val_target, 0, 1)
-                           + 0.4 * _clamp(soi["inv"] / 25000, 0, 1)
-                           + 0.2 * _clamp(soi["ret"] / 25000, 0, 1))
-    else:
-        # Fallback: ACS only (zip absent from SOI)
-        s_income = 20 * _clamp(pct_inc / 30, 0, 1)
-        s_networth = 25 * (0.6 * _clamp(value / val_target, 0, 1) + 0.4 * _clamp(pct_invest / 50, 0, 1))
+        # Income capacity: ACS %>=threshold blended with IRS %returns>=$200k AGI (sharper on high earners).
+        income_fit = _clamp(0.5 * _clamp(pct_inc / 30, 0, 1) + 0.5 * _clamp(soi["p200k"] / 25, 0, 1), 0, 1)
+        # Net-worth capacity: home equity + IRS investment-income $ + retirement-distribution $ per return.
+        networth_fit = (0.4 * _clamp(value / val_target, 0, 1)
+                        + 0.4 * _clamp(soi["inv"] / 25000, 0, 1)
+                        + 0.2 * _clamp(soi["ret"] / 25000, 0, 1))
+    else:  # ACS-only fallback (zip absent from SOI)
+        income_fit = _clamp(pct_inc / 30, 0, 1)
+        networth_fit = 0.6 * _clamp(value / val_target, 0, 1) + 0.4 * _clamp(pct_invest / 50, 0, 1)
+    # Financial capacity (45): the GREATER of income OR net worth — a household qualifies whether they
+    # have a high paycheck OR accumulated wealth. Neither the young high-earner nor the wealthy retiree
+    # is penalized for being strong in only one.
+    s_capacity = 45 * max(income_fit, networth_fit)
     s_own = 15 if pct_own >= 90 else _clamp(15 * (pct_own - 50) / 40, 0, 15)
     s_edu = 15 if pct_bach >= 60 else _clamp(15 * (pct_bach - 25) / 35, 0, 15)
     s_marr = 10 if pct_marr >= 65 else _clamp(10 * (pct_marr - 35) / 30, 0, 10)
     s_det = 10 if pct_det >= 80 else _clamp(10 * (pct_det - 40) / 40, 0, 10)
     s_age = 5 if age_share >= 50 else _clamp(5 * (age_share - 35) / 20, 0, 5)
-    icp = round(s_income + s_networth + s_own + s_edu + s_marr + s_det + s_age, 1)
+    icp = round(s_capacity + s_own + s_edu + s_marr + s_det + s_age, 1)
 
     return {
         "zip": zip_code, "area": area,
