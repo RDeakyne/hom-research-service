@@ -1,7 +1,7 @@
 """Orchestrates the full Research Intelligence run for one client, then publishes to Base44.
 Mirrors the painter-market-research skill phases. Called by main.py (the /run endpoint)."""
 import re, math
-import base44, scoring, research
+import base44, scoring, research, competition
 
 
 def _zips(raw: str):
@@ -129,6 +129,13 @@ def run(client_id: str, log=print):
     mlat = round(sum(a for a, _ in centroids) / len(centroids), 4) if centroids else None
     mlng = round(sum(b for _, b in centroids) / len(centroids), 4) if centroids else None
 
+    # Local competition density: established painting competitors (>=50 Google reviews) within 25 mi
+    # of the market center, with map pins. A market-saturation proxy (not a Meta-auction read). Skipped
+    # gracefully if GOOGLE_PLACES_API_KEY is unset. Ad spend stays in-house — only the count/map ship.
+    base44.set_status(client_id, "Running", "Mapping local competition...")
+    comp = competition.competition_profile(mlat, mlng)
+    log(f"competition: {comp['established_count']} established / {comp['total_found']} found ({comp['density_tier'] or 'n/a'})")
+
     # Addressable homeowner households (ages 35-75) per tier — real Census counts summed across the
     # tier's zips (one paint job per household, not per person).
     _hh = lambda zs: sum(z.get("households_35_75", 0) for z in zs)
@@ -147,10 +154,12 @@ def run(client_id: str, log=print):
         "top_concerns": homeowner_concerns,
         "top_complaints": comps_complaints,
         "competitors": comps,
+        "competition": comp,
         "sources": "Demographics: Census ACS 5-yr via Census Reporter (B19001/B15003/B11001/B01001/B25077/B25003/B25024). "
                    "Homeowner households (ages 35-75): Census B25007 (owner-occupied by age of householder). "
                    "Reviews & USPs: competitor websites + Google/Yelp/BBB. Concerns: Reddit/forums via web search (flag where thin). "
-                   "Competitor Meta ads = MANUAL CHECK. Household counts = Census owner-occupied, ages 35-75; pull reachable size from Meta Ads Manager.",
+                   "Competitor Meta ads = MANUAL CHECK. Household counts = Census owner-occupied, ages 35-75; pull reachable size from Meta Ads Manager. "
+                   "Local competition: Google Places API (painting contractors within 25 mi of the market center; 'established' = >=50 Google reviews).",
         "status": "Done", "status_note": f"{len(fund)} FUND / {len(expansion)} expansion / {len(scored)-len(fund)-len(expansion)} excluded",
     }
     base44.upsert_research(client_id, payload)
