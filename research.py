@@ -37,6 +37,57 @@ name, website, rating, review_count, positioning, top_usps (array), common_topic
     return data[:5]
 
 
+def identity(client_name, city, region, website, services, company_info):
+    """Brand Perception & Sentiment (Limitless Mission 1) for the CLIENT's OWN painting company.
+    Compares how they describe THEMSELVES (their site/GBP/social + intake answers) against how the
+    MARKET actually perceives them (reviews/forums). Claude + web search. Flags thin sourcing rather
+    than fabricating. Returns a dict matching the identity_analysis Base44 field."""
+    ci = company_info if isinstance(company_info, dict) else {}
+    site = website or ci.get("website") or "(no website provided)"
+    gbp = ci.get("google_business_profile_url") or ""
+    socials = ci.get("social_media") or {}
+    social_list = ", ".join(f"{k}: {v}" for k, v in socials.items() if v) or "(none provided)"
+    story = ci.get("business_story") or ""
+    diff = ci.get("story_differentiator") or ci.get("story_benefit") or ""
+    usp = ci.get("unique_selling_points") or ""
+    target = ci.get("target_customer") or ""
+    offers = ci.get("current_offers") or ci.get("past_offers") or ""
+
+    data = _ask_json(f"""You are doing a BRAND PERCEPTION & SENTIMENT analysis for {client_name}, a residential painting contractor serving {city}, {region}. Services: {services}.
+Compare how the business describes ITSELF against how the MARKET actually perceives it. Use web search throughout and quote verbatim.
+
+THE BUSINESS — search these to pull their EXACT self-description language:
+- Website: {site}
+- Google Business Profile: {gbp or '(search for it by business name + city)'}
+- Social: {social_list}
+Their own intake answers (their words, may be blank):
+- Story: {story}
+- Differentiator: {diff}
+- Unique selling points: {usp}
+- Target customer: {target}
+- Current offer: {offers}
+
+THE MARKET — mine Google reviews, Yelp, BBB, Facebook, Nextdoor, Reddit and local forums for how CUSTOMERS and PROSPECTS describe THIS specific business. Quote verbatim. If review volume is thin or you cannot confidently identify the business, say so in sourcing_note and do NOT fabricate.
+
+Return a JSON object with EXACTLY these keys:
+- self_description (string: how they position themselves, from site/GBP/social + intake)
+- claimed_differentiators (array of strings)
+- market_perception (string: how customers/prospects actually describe them, with verbatim phrasing)
+- perception_gap (string: where the claim diverges from the belief — the strategic opening)
+- confirmed_strengths (array of objects with keys: strength, evidence, source)
+- vulnerabilities (array of objects with keys: issue, evidence, source)
+- ownable_emotional_territory (string: the space the gap + strengths point to that they can credibly own)
+- sourcing_note (string: flag thin/uncertain sourcing here)""") or {}
+
+    data.setdefault("claimed_differentiators", [])
+    data.setdefault("confirmed_strengths", [])
+    data.setdefault("vulnerabilities", [])
+    for k in ("self_description", "market_perception", "perception_gap",
+              "ownable_emotional_territory", "sourcing_note"):
+        data.setdefault(k, "")
+    return data
+
+
 def complaints(city, region):
     return _ask_json(f"""Mine online reviews (Google, Yelp, BBB, complaint boards) for painting contractors in {city}, {region}. Identify the top 4 recurring COMPLAINT themes homeowners have about local painters (e.g. rotating subcontractor crews, quote-not-honored/cost creep, sloppy prep/cleanup, no-shows/slow). For each return: title, explanation (1-2 sentences), source. Return a JSON array of objects with keys: title, explanation, source.""") or []
 

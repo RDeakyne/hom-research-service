@@ -1,7 +1,17 @@
 """Orchestrates the full Research Intelligence run for one client, then publishes to Base44.
 Mirrors the painter-market-research skill phases. Called by main.py (the /run endpoint)."""
-import re, math
+import os, re, math
 import base44, scoring, research, competition
+
+# --- Phase-1 rollout gate (Identity Analysis) ---
+# During testing, Identity Analysis runs ONLY for the demo client so live clients are untouched
+# (no extra cost/latency, nothing written). At rollout set env IDENTITY_ALL=1 to enable for everyone.
+_IDENTITY_DEMO_IDS = {"6a2c4c51ef3be74f3fb1c8f0"}   # Demo Client
+_IDENTITY_ALL = os.environ.get("IDENTITY_ALL") == "1"
+
+
+def _identity_enabled(client_id):
+    return _IDENTITY_ALL or client_id in _IDENTITY_DEMO_IDS
 
 
 def _zips(raw: str):
@@ -124,6 +134,15 @@ def run(client_id: str, log=print):
     comps_complaints = research.complaints(city, region)
     homeowner_concerns = research.concerns(city, region)
 
+    # Identity Analysis (Mission 1): how the client's own company describes itself vs. how the market
+    # perceives it. Reads the client's Company Info (website/GBP/social + intake) for the self side and
+    # web-searches reviews/forums for the market side. Flags thin input rather than fabricating.
+    # Gated to the demo client during Phase-1 testing (see _identity_enabled).
+    identity_analysis = None
+    if _identity_enabled(client_id):
+        base44.set_status(client_id, "Running", "Analyzing brand identity & market perception...")
+        identity_analysis = research.identity(name, city, region, cl.get("website"), services, cl)
+
     broad_t, hq_t = _targeting(income_threshold)
     centroids = [(z["lat"], z["lng"]) for z in (fund or scored) if z["lat"] and z["lng"]]
     mlat = round(sum(a for a, _ in centroids) / len(centroids), 4) if centroids else None
@@ -162,6 +181,10 @@ def run(client_id: str, log=print):
                    "Local competition: Google Places API (painting contractors within 25 mi of the market center; 'established' = >=50 Google reviews).",
         "status": "Done", "status_note": f"{len(fund)} FUND / {len(expansion)} expansion / {len(scored)-len(fund)-len(expansion)} excluded",
     }
+    # Only write identity_analysis when it was computed (demo gate) — never sends the key for live
+    # clients, so it can't fail an upsert even before the Base44 field exists globally.
+    if identity_analysis is not None:
+        payload["identity_analysis"] = identity_analysis
     base44.upsert_research(client_id, payload)
     log(f"published {name}: FUND={len(fund)} HQ={len(hq)} expansion={len(expansion)} competitors={len(comps)}")
     return {"ok": True, "fund": len(fund), "hq": len(hq), "expansion": len(expansion)}
