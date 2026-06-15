@@ -61,6 +61,19 @@ def upsert_research(client_id: str, payload: dict) -> dict:
     return get_research_record(client_id) or {}
 
 
+def update_research_fields(client_id: str, fields: dict) -> dict:
+    """Merge specific fields into the client's RI record (read-modify-write, like set_status). Used
+    for the late two-stage publish (competitor_ad_intel + angle_intelligence arrive after the core
+    report). Merges with existing so a partial PUT can't wipe already-written fields."""
+    existing = get_research_record(client_id)
+    body = {**(existing or {}), "client_id": client_id, **fields}
+    if existing:
+        _request("PUT", f"{BASE}/entities/{ENTITY}/{existing['id']}", json=body).raise_for_status()
+    else:
+        _request("POST", f"{BASE}/entities/{ENTITY}", json=body).raise_for_status()
+    return get_research_record(client_id) or {}
+
+
 def set_status(client_id: str, status: str, note: str = ""):
     """Flip the run status so the UI can show Running / Done / Error. Best-effort — callers in the
     request path should tolerate failure (a Base44 blip shouldn't crash the endpoint)."""

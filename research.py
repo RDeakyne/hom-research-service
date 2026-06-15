@@ -27,11 +27,12 @@ def _ask_json(prompt: str):
 
 def competitors(client_name, city, region, services, fund_zips):
     data = _ask_json(f"""You are doing competitor research for {client_name}, a painting contractor serving {city}, {region} (zips: {', '.join(fund_zips[:8])}). Services: {services}.
-Find the top 5 most relevant competing painting companies (most reviews + actively marketing) in that area. For each, use web search to get: name, website, Google rating (number), review_count (number), a one-line positioning, top_usps (3-5 from their website), and common_topics (the 5 topics/themes they emphasize most on their site).
-Do NOT include ad creative — that's a manual step. Return a JSON array of objects with keys:
-name, website, rating, review_count, positioning, top_usps (array), common_topics (array of 5).""") or []
+Find the top 5 most relevant competing painting companies (most reviews + actively marketing) in that area. For each, use web search to get: name, website, Google rating (number), review_count (number), a one-line positioning, top_usps (3-5 from their website), common_topics (the 5 topics/themes they emphasize most on their site), and facebook_page_url (their Facebook Page URL — find the Facebook link on their website; if none is found, return an empty string).
+Do NOT include ad creative — that's a separate step. Return a JSON array of objects with keys:
+name, website, rating, review_count, positioning, top_usps (array), common_topics (array of 5), facebook_page_url.""") or []
     for c in data:
         c.setdefault("top_usps", []); c.setdefault("common_topics", [])
+        c.setdefault("facebook_page_url", "")
         c["ad_teardown"] = dict(EMPTY_TEARDOWN)
         c["rating"] = float(c.get("rating") or 0); c["review_count"] = int(c.get("review_count") or 0)
     return data[:5]

@@ -1,0 +1,153 @@
+{
+  "built_at": "2026-06-15T21:09:14.800605Z",
+  "window_days": 180,
+  "min_spend": 500.0,
+  "total_ads_scored": 200,
+  "total_spend": 314119.0,
+  "total_sets": 805,
+  "angles": [
+    {
+      "angle": "story",
+      "name": "Origin / Story",
+      "spend": 23581.0,
+      "leads": 198,
+      "sets": 78,
+      "cpes": 302.0,
+      "set_rate": 0.3939,
+      "cpl": 119.0,
+      "n_ads": 15
+    },
+    {
+      "angle": "owner_identity",
+      "name": "Owner / Founder Identity",
+      "spend": 141669.0,
+      "leads": 1559,
+      "sets": 443,
+      "cpes": 320.0,
+      "set_rate": 0.2842,
+      "cpl": 91.0,
+      "n_ads": 85
+    },
+    {
+      "angle": "offer",
+      "name": "Offer / Savings",
+      "spend": 44525.0,
+      "leads": 427,
+      "sets": 117,
+      "cpes": 381.0,
+      "set_rate": 0.274,
+      "cpl": 104.0,
+      "n_ads": 23
+    },
+    {
+      "angle": "trust_risk",
+      "name": "Trust & Risk Reversal",
+      "spend": 20018.0,
+      "leads": 230,
+      "sets": 46,
+      "cpes": 435.0,
+      "set_rate": 0.2,
+      "cpl": 87.0,
+      "n_ads": 14
+    },
+    {
+      "angle": "craftsmanship",
+      "name": "Craftsmanship / Quality / Prep",
+      "spend": 11218.0,
+      "leads": 79,
+      "sets": 22,
+      "cpes": 510.0,
+      "set_rate": 0.2785,
+      "cpl": 142.0,
+      "n_ads": 8
+    },
+    {
+      "angle": "done_for_you",
+      "name": "Done-For-You / Minimal Disruption",
+      "spend": 15741.0,
+      "leads": 122,
+      "sets": 30,
+      "cpes": 525.0,
+      "set_rate": 0.2459,
+      "cpl": 129.0,
+      "n_ads": 10
+    },
+    {
+      "angle": "diy_vs_pro",
+      "name": "DIY-Fail vs. Pro",
+      "spend": 658.0,
+      "leads": 7,
+      "sets": 1,
+      "cpes": 658.0,
+      "set_rate": 0.1429,
+      "cpl": 94.0,
+      "n_ads": 1
+    },
+    {
+      "angle": "transformation",
+      "name": "Transformation / Before-After",
+      "spend": 4344.0,
+      "leads": 53,
+      "sets": 6,
+      "cpes": 724.0,
+      "set_rate": 0.1132,
+      "cpl": 82.0,
+      "n_ads": 5
+    },
+    {
+      "angle": "problem_pain",
+      "name": "Problem-First / Pain",
+      "spend": 32775.0,
+      "leads": 184,
+      "sets": 44,
+      "cpes": 745.0,
+      "set_rate": 0.2391,
+      "cpl": 178.0,
+      "n_ads": 21
+    },
+    {
+      "angle": "aspiration",
+      "name": "Aspiration / Identity",
+      "spend": 9146.0,
+      "leads": 49,
+      "sets": 12,
+      "cpes": 762.0,
+      "set_rate": 0.2449,
+      "cpl": 187.0,
+      "n_ads": 10
+    },
+    {
+      "angle": "social_proof",
+      "name": "Social Proof / Reviews",
+      "spend": 6295.0,
+      "leads": 33,
+      "sets": 5,
+      "cpes": 1259.0,
+      "set_rate": 0.1515,
+      "cpl": 191.0,
+      "n_ads": 5
+    },
+    {
+      "angle": "seasonal",
+      "name": "Seasonal Urgency",
+      "spend": 3490.0,
+      "leads": 24,
+      "sets": 1,
+      "cpes": 3490.0,
+      "set_rate": 0.0417,
+      "cpl": 145.0,
+      "n_ads": 2
+    },
+    {
+      "angle": "local",
+      "name": "Local / Neighborhood Callout",
+      "spend": 660.0,
+      "leads": 0,
+      "sets": 0,
+      "cpes": null,
+      "set_rate": null,
+      "cpl": null,
+      "n_ads": 1
+    }
+  ]
+}

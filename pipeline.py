@@ -1,17 +1,28 @@
 """Orchestrates the full Research Intelligence run for one client, then publishes to Base44.
 Mirrors the painter-market-research skill phases. Called by main.py (the /run endpoint)."""
 import os, re, math
-import base44, scoring, research, competition
+import base44, scoring, research, competition, manus, angle
 
-# --- Phase-1 rollout gate (Identity Analysis) ---
-# During testing, Identity Analysis runs ONLY for the demo client so live clients are untouched
-# (no extra cost/latency, nothing written). At rollout set env IDENTITY_ALL=1 to enable for everyone.
-_IDENTITY_DEMO_IDS = {"6a2c4c51ef3be74f3fb1c8f0"}   # Demo Client
-_IDENTITY_ALL = os.environ.get("IDENTITY_ALL") == "1"
+# --- v2 rollout gate (Identity Analysis, competitor ad teardown, angle engine) ---
+# During testing these features run ONLY for the demo client so live clients are untouched (no extra
+# cost/latency, nothing written). At rollout set env V2_ALL=1 to enable for every client.
+_DEMO_IDS = {"6a2c4c51ef3be74f3fb1c8f0"}   # Demo Client
+_V2_ALL = os.environ.get("V2_ALL") == "1"
 
 
-def _identity_enabled(client_id):
-    return _IDENTITY_ALL or client_id in _IDENTITY_DEMO_IDS
+def _demo_feature(client_id):
+    return _V2_ALL or client_id in _DEMO_IDS
+
+
+def _advertisers(cl, comps):
+    """Manus advertiser list: the client's own FB page (from Company Info) + each competitor's
+    resolved Facebook Page. Pages we couldn't resolve go through empty — Manus flags them."""
+    out = [{"name": cl.get("name", "This client"),
+            "facebook_page_url": ((cl.get("social_media") or {}).get("facebook") or "").strip()}]
+    for c in (comps or []):
+        out.append({"name": c.get("name", ""),
+                    "facebook_page_url": (c.get("facebook_page_url") or "").strip()})
+    return out
 
 
 def _zips(raw: str):
@@ -137,9 +148,9 @@ def run(client_id: str, log=print):
     # Identity Analysis (Mission 1): how the client's own company describes itself vs. how the market
     # perceives it. Reads the client's Company Info (website/GBP/social + intake) for the self side and
     # web-searches reviews/forums for the market side. Flags thin input rather than fabricating.
-    # Gated to the demo client during Phase-1 testing (see _identity_enabled).
+    # Gated to the demo client during testing (see _demo_feature).
     identity_analysis = None
-    if _identity_enabled(client_id):
+    if _demo_feature(client_id):
         base44.set_status(client_id, "Running", "Analyzing brand identity & market perception...")
         identity_analysis = research.identity(name, city, region, cl.get("website"), services, cl)
 
@@ -185,6 +196,33 @@ def run(client_id: str, log=print):
     # clients, so it can't fail an upsert even before the Base44 field exists globally.
     if identity_analysis is not None:
         payload["identity_analysis"] = identity_analysis
+
+    # Two-stage publish: the Manus ad teardown takes minutes, so publish the core report NOW (status
+    # stays Running with a note), then run Phase 2/3 and patch them in. Live clients skip all of this.
+    v2 = _demo_feature(client_id)
+    if v2:
+        payload["status"] = "Running"
+        payload["status_note"] = "Core report ready - tearing down competitor ads + building angle strategy (~5 min)..."
     base44.upsert_research(client_id, payload)
-    log(f"published {name}: FUND={len(fund)} HQ={len(hq)} expansion={len(expansion)} competitors={len(comps)}")
+    log(f"published core {name}: FUND={len(fund)} HQ={len(hq)} expansion={len(expansion)} competitors={len(comps)}")
+
+    if v2:
+        # Phase 2: competitor ad teardown via Manus (Meta Ad Library) — hands Manus the resolved pages.
+        base44.set_status(client_id, "Running", "Tearing down competitor ads in the Meta Ad Library (Manus)...")
+        competitor_ad_intel = manus.teardown(name, _advertisers(cl, comps), log=log)
+        # Phase 3: angle strategy from our Revenue Pro conversion data + competitors + concerns + identity.
+        base44.set_status(client_id, "Running", "Building ad angle strategy from our conversion data...")
+        angle_intelligence = angle.recommend(name, city, region, homeowner_concerns,
+                                              comps_complaints, competitor_ad_intel, identity_analysis)
+        updates = {"status": "Done",
+                   "status_note": f"{len(fund)} FUND / {len(expansion)} expansion / "
+                                  f"{len(scored)-len(fund)-len(expansion)} excluded"}
+        if competitor_ad_intel is not None:
+            updates["competitor_ad_intel"] = competitor_ad_intel
+        if angle_intelligence is not None:
+            updates["angle_intelligence"] = angle_intelligence
+        base44.update_research_fields(client_id, updates)
+        log(f"published v2 {name}: competitor_ad_intel={'yes' if competitor_ad_intel else 'no'} "
+            f"angle={'yes' if angle_intelligence else 'no'}")
+
     return {"ok": True, "fund": len(fund), "hq": len(hq), "expansion": len(expansion)}
