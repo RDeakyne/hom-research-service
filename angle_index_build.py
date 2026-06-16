@@ -93,16 +93,19 @@ def main():
             a["headline"] = cr["headline"]
     print(f"aggregated {len(agg)} (company,ad) units from fbweeklyanalytics")
 
-    # 2) estimate sets + total CRM leads per (company, ad). Use Revenue Pro's own lead records (not
-    # Meta's total_conversions, which is sparse) so set_rate = sets / RP-leads, per our metrics rules.
+    # 2) estimate sets + total CRM leads + booked revenue per (company, ad). Revenue Pro's own lead
+    # records (not Meta's sparse total_conversions), so set_rate = sets/RP-leads and we get real
+    # booked revenue (jobBookedAmount) -> ROAS / cost-of-marketing proxy, per our metrics rules.
     sets = collections.Counter()
     leadcount = collections.Counter()
+    revenue = collections.Counter()
     for d in db["leads"].find({"isDeleted": {"$ne": True}},
-                              {"companyId": 1, "adName": 1, "status": 1}):
+                              {"companyId": 1, "adName": 1, "status": 1, "jobBookedAmount": 1}):
         aid = _aid(d.get("companyId"), d.get("adName") or "")
         leadcount[aid] += 1
         if d.get("status") in SET_STATUSES:
             sets[aid] += 1
+        revenue[aid] += float(d.get("jobBookedAmount") or 0)
 
     # 3) keep meaningful ads, classify
     ads = [{"aid": k, **v} for k, v in agg.items()
@@ -113,13 +116,14 @@ def main():
     tags = classify(ads)
 
     # 4) aggregate by angle
-    by = collections.defaultdict(lambda: {"spend": 0.0, "leads": 0.0, "sets": 0, "n_ads": 0})
+    by = collections.defaultdict(lambda: {"spend": 0.0, "leads": 0.0, "sets": 0, "rev": 0.0, "n_ads": 0})
     for a in ads:
         ang = tags.get(a["aid"], "uncategorized")
         b = by[ang]
         b["spend"] += a["spend"]
         b["leads"] += leadcount.get(a["aid"], 0)        # Revenue Pro CRM leads
         b["sets"] += sets.get(a["aid"], 0)
+        b["rev"] += revenue.get(a["aid"], 0.0)
         b["n_ads"] += 1
 
     rows = []
@@ -129,11 +133,31 @@ def main():
         cpes = round(b["spend"] / b["sets"], 0) if b["sets"] else None
         set_rate = round(b["sets"] / b["leads"], 4) if b["leads"] else None
         cpl = round(b["spend"] / b["leads"], 0) if b["leads"] else None
+        roas = round(b["rev"] / b["spend"], 2) if b["spend"] else None     # booked revenue per $1 ad spend
+        com = round(b["spend"] / b["rev"], 4) if b["rev"] else None        # ad-spend cost-of-marketing proxy
         rows.append({"angle": ang, "name": tax.NAMES[ang], "spend": round(b["spend"], 0),
                      "leads": int(b["leads"]), "sets": b["sets"], "cpes": cpes,
-                     "set_rate": set_rate, "cpl": cpl, "n_ads": b["n_ads"]})
+                     "set_rate": set_rate, "cpl": cpl, "roas": roas, "cost_of_marketing": com,
+                     "booked_revenue": round(b["rev"], 0), "n_ads": b["n_ads"]})
     # rank: ads that produced sets first, by CPES asc; then the rest
     rows.sort(key=lambda r: (r["cpes"] is None, r["cpes"] if r["cpes"] is not None else 9e9))
+
+    # Top winning ADS (real copy) — the "80% what works" backbone for concept generation. Ads with
+    # >=2 sets, ranked by CPES; keep the actual primaryText/headline so the engine models proven copy.
+    winners = []
+    for a in ads:
+        s = sets.get(a["aid"], 0)
+        if s >= 2:
+            winners.append({
+                "ad_name": a["adName"], "angle": tags.get(a["aid"], "uncategorized"),
+                "angle_name": tax.NAMES.get(tags.get(a["aid"]), "Uncategorized"),
+                "primary_text": (a["primaryText"] or "")[:600], "headline": (a["headline"] or "")[:200],
+                "spend": round(a["spend"], 0), "sets": s,
+                "cpes": round(a["spend"] / s, 0),
+                "roas": round(revenue.get(a["aid"], 0) / a["spend"], 2) if a["spend"] else None,
+            })
+    winners.sort(key=lambda w: w["cpes"])
+    top_ads = winners[:30]
 
     index = {
         "built_at": datetime.datetime.utcnow().isoformat() + "Z",
@@ -141,14 +165,17 @@ def main():
         "total_ads_scored": len(ads),
         "total_spend": round(sum(a["spend"] for a in ads), 0),
         "total_sets": sum(sets.get(a["aid"], 0) for a in ads),
+        "total_booked_revenue": round(sum(revenue.get(a["aid"], 0.0) for a in ads), 0),
         "angles": rows,
+        "top_ads": top_ads,
     }
     with open(os.path.join(os.path.dirname(__file__), "angle_index.json"), "w") as f:
         json.dump(index, f, indent=2)
     print(f"\nwrote angle_index.json — {len(rows)} angles, "
-          f"${index['total_spend']:.0f} spend, {index['total_sets']} sets")
+          f"${index['total_spend']:.0f} spend, {index['total_sets']} sets, "
+          f"${index['total_booked_revenue']:.0f} booked, {len(top_ads)} winning ads")
     for r in rows[:8]:
-        print(f"  {r['name']:<34} CPES={r['cpes']} set_rate={r['set_rate']} n_ads={r['n_ads']} spend=${r['spend']:.0f}")
+        print(f"  {r['name']:<34} CPES={r['cpes']} ROAS={r['roas']} set_rate={r['set_rate']} n_ads={r['n_ads']}")
 
 
 if __name__ == "__main__":

@@ -209,19 +209,21 @@ def run(client_id: str, log=print):
         # Phase 2: competitor ad teardown via Manus (Meta Ad Library) — hands Manus the resolved pages.
         base44.set_status(client_id, "Running", "Tearing down competitor ads in the Meta Ad Library (Manus)...")
         competitor_ad_intel = manus.teardown(name, city, region, _competitor_seeds(comps, city, region), log=log)
-        # Phase 3: angle strategy from our Revenue Pro conversion data + competitors + concerns + identity.
-        base44.set_status(client_id, "Running", "Building ad angle strategy from our conversion data...")
-        angle_intelligence = angle.recommend(name, city, region, homeowner_concerns,
-                                              comps_complaints, competitor_ad_intel, identity_analysis)
+        # Phase 3: Meta Ad Strategy — prioritized, build-ready ad concepts. 80% from our portfolio
+        # conversion data (CPES/ROAS by angle + winning copy), 20% from this client's research/identity/
+        # competition. Maps to the portal's Content Asset fields for the one-click push to Meta Ads Content.
+        base44.set_status(client_id, "Running", "Building Meta Ad Strategy from our conversion data...")
+        meta_ad_strategy = angle.strategy(name, city, region, services, homeowner_concerns,
+                                          comps_complaints, competitor_ad_intel, identity_analysis)
         updates = {"status": "Done",
                    "status_note": f"{len(fund)} FUND / {len(expansion)} expansion / "
                                   f"{len(scored)-len(fund)-len(expansion)} excluded"}
         if competitor_ad_intel is not None:
             updates["competitor_ad_intel"] = competitor_ad_intel
-        if angle_intelligence is not None:
-            updates["angle_intelligence"] = angle_intelligence
+        if meta_ad_strategy is not None:
+            updates["meta_ad_strategy"] = meta_ad_strategy
         base44.update_research_fields(client_id, updates)
         log(f"published v2 {name}: competitor_ad_intel={'yes' if competitor_ad_intel else 'no'} "
-            f"angle={'yes' if angle_intelligence else 'no'}")
+            f"meta_ad_strategy concepts={len((meta_ad_strategy or {}).get('ad_concepts', []))}")
 
     return {"ok": True, "fund": len(fund), "hq": len(hq), "expansion": len(expansion)}

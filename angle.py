@@ -23,9 +23,9 @@ except Exception:
     INDEX = {"angles": [], "built_at": None}
 
 
-def _ask_json(prompt):
+def _ask_json(prompt, max_tokens=8000):
     msg = _client.messages.create(
-        model=MODEL, max_tokens=8000,
+        model=MODEL, max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt + "\n\nReturn ONLY valid JSON, no prose, no fences."}])
     text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
     text = re.sub(r"^```(json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
@@ -34,6 +34,97 @@ def _ask_json(prompt):
     except Exception:
         m = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
         return json.loads(m.group(1)) if m else None
+
+
+def strategy(client_name, city, region, services, concerns, complaints, competitor_ad_intel, identity):
+    """Full Meta Ad Strategy — prioritized, build-ready ad concepts that map to the portal's Content
+    Asset fields. 80% grounded in what converts across our portfolio (angle_index winners by CPES/ROAS),
+    20% in this client's research/identity/competition. Produces the 3-tab payload (research / proposed
+    offers & angles / ad concepts with 3 script variations each)."""
+    angles = INDEX.get("angles", [])
+    top_ads = INDEX.get("top_ads", [])[:15]
+    angles_str = "\n".join(
+        f"- {r['name']}: CPES {('$' + str(int(r['cpes']))) if r.get('cpes') else 'n/a'}, "
+        f"ROAS {r.get('roas')}, set_rate {r.get('set_rate')}, {r['n_ads']} ads"
+        for r in angles) or "(index unavailable)"
+    winners_str = "\n".join(
+        f"- [{w.get('angle_name')}] CPES ${int(w['cpes'])} ROAS {w.get('roas')} | "
+        f"HEADLINE: {w.get('headline') or '(none)'} | COPY: {(w.get('primary_text') or '')[:240]}"
+        for w in top_ads) or "(no winning ads in index)"
+    comp = competitor_ad_intel or {}
+    white = comp.get("whitespace", {}) or {}
+    coverage = {}
+    for a in comp.get("advertisers", []):
+        for ang in (a.get("dominant_angles") or []):
+            coverage[ang] = coverage.get(ang, 0) + 1
+    comp_str = ", ".join(f"{k} ({v})" for k, v in sorted(coverage.items(), key=lambda x: -x[1])) \
+        or "(no competitor ad data)"
+    concerns_str = "; ".join(c.get("title", "") for c in (concerns or [])) or "(none)"
+    complaints_str = "; ".join(c.get("title", "") for c in (complaints or [])) or "(none)"
+    ident = identity or {}
+    strengths = "; ".join(s.get("strength", "") for s in (ident.get("confirmed_strengths") or [])) or "(none)"
+    territory = ident.get("ownable_emotional_territory", "") or "(not assessed)"
+
+    prompt = f"""You are the Meta Ad Strategist for {client_name}, a residential painting contractor in {city}, {region}. Services: {services}.
+Produce a PRIORITIZED Meta ad plan that tells the media team EXACTLY what ads to build. Weighting:
+- 80%: what has PROVEN to work across our client portfolio (lowest cost per estimate set, best ROAS, best set rate). Model new ads on our winning copy below.
+- 20%: this client's specific edge (identity, competitive whitespace, local homeowner concerns).
+
+=== OUR PROVEN PERFORMANCE (the 80% — portfolio-wide) ===
+ANGLES ranked (lower CPES + higher ROAS = better):
+{angles_str}
+
+OUR WINNING ADS (real copy that produced estimate sets — model new concepts on these patterns):
+{winners_str}
+
+=== THIS CLIENT'S EDGE (the 20%) ===
+Identity strengths: {strengths}
+Ownable territory: {territory}
+Competitor angles already saturated (avoid copying): {comp_str}
+Competitor WHITESPACE (angles nobody runs): {white.get('angles_nobody_runs')}
+Objections nobody addresses: {white.get('objections_nobody_addresses')}
+Homeowner concerns: {concerns_str}
+Complaints about local painters: {complaints_str}
+
+ANGLE TAXONOMY (use these names for creative_angle):
+{tax.list_for_prompt()}
+
+Return a JSON object with EXACTLY these keys:
+{{
+ "research": {{
+   "what_works_for_us": "2-3 sentences: the proven angles/offers/copy patterns that win portfolio-wide, with CPES/ROAS proof",
+   "client_edge": "2-3 sentences: this client's whitespace + identity advantage (the 20%)",
+   "proven_angles": [{{"angle":"key","name":"...","cpes":0,"roas":0,"set_rate":0,"n_ads":0}}],
+   "top_concerns": ["..."],
+   "competitor_whitespace": ["..."]
+ }},
+ "proposed_offers": [{{"offer":"...","rationale":"...","basis":"historical|research"}}],
+ "proposed_angles": [{{"angle":"key","name":"...","verdict":"OWN|TEST|AVOID","priority":1,"rationale":"...","basis":"80% historical|20% research","cpes_proof":"$X across N ads"}}],
+ "ad_concepts": [
+   {{"priority":1,"asset_name":"short punchy name","video_or_image":"Video|Image",
+     "awareness_stage":"Top of Funnel|Middle of Funnel|Bottom of Funnel","service":["Exterior|Interior|Cabinet"],
+     "creative_angle":"Owner / Founder Identity","offer":"Free estimate",
+     "script_variation_1":"full script if Video, or primary text if Image — brand voice, ready for an editor",
+     "script_variation_2":"a distinct variation",
+     "script_variation_3":"a distinct variation",
+     "creative_direction":"shot list / visual direction (Video) or image concept (Image)",
+     "rationale":"why this ad will work for THIS client",
+     "proof":"the 80/20 basis — cite the CPES/ROAS proof + the client edge",
+     "weight":"mostly-historical|balanced|mostly-research"}}
+ ],
+ "headline_recommendation": "the single highest-priority ad to build first, and why"
+}}
+
+Generate 6 ad_concepts, ranked by priority (1 = build first). Lead with mostly-historical proven concepts; include 1-2 that exploit this client's whitespace. Brand voice: premium-but-approachable local painter; homeowner avatar = Gen X / Boomer / affluent; no financing language; 'curating quality', not 'surviving budget'. Scripts ready to hand to an editor."""
+
+    data = _ask_json(prompt, max_tokens=16000) or {}
+    data.setdefault("research", {})
+    data.setdefault("proposed_offers", [])
+    data.setdefault("proposed_angles", [])
+    data.setdefault("ad_concepts", [])
+    data.setdefault("headline_recommendation", "")
+    data["index_built_at"] = INDEX.get("built_at")
+    return data
 
 
 def recommend(client_name, city, region, concerns, complaints, competitor_ad_intel, identity):
