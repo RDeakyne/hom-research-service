@@ -215,6 +215,9 @@ def run(client_id: str, log=print):
         base44.set_status(client_id, "Running", "Building Meta Ad Strategy from our conversion data...")
         meta_ad_strategy = angle.strategy(name, city, region, services, homeowner_concerns,
                                           comps_complaints, competitor_ad_intel, identity_analysis)
+        # go_to_market is written as its OWN top-level field (Base44 drops sub-keys not in a field's
+        # defined schema, so the 80/20 go-to-market gets its own defined field).
+        gtm = meta_ad_strategy.pop("go_to_market", None) if isinstance(meta_ad_strategy, dict) else None
         updates = {"status": "Done",
                    "status_note": f"{len(fund)} FUND / {len(expansion)} expansion / "
                                   f"{len(scored)-len(fund)-len(expansion)} excluded"}
@@ -222,8 +225,11 @@ def run(client_id: str, log=print):
             updates["competitor_ad_intel"] = competitor_ad_intel
         if meta_ad_strategy is not None:
             updates["meta_ad_strategy"] = meta_ad_strategy
+        if gtm is not None:
+            updates["go_to_market"] = gtm
         base44.update_research_fields(client_id, updates)
         log(f"published v2 {name}: competitor_ad_intel={'yes' if competitor_ad_intel else 'no'} "
-            f"meta_ad_strategy concepts={len((meta_ad_strategy or {}).get('ad_concepts', []))}")
+            f"meta_ad_strategy concepts={len((meta_ad_strategy or {}).get('ad_concepts', []))} "
+            f"go_to_market={'yes' if gtm else 'no'}")
 
     return {"ok": True, "fund": len(fund), "hq": len(hq), "expansion": len(expansion)}

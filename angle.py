@@ -22,6 +22,15 @@ try:
 except Exception:
     INDEX = {"angles": [], "built_at": None}
 
+# Proven performers — the 80% backbone (portfolio-wide, pre-filled defaults the media buyer can accept
+# as-is: primary text, headline, CTA, the DQ form spec, + top-performer reference lists). Built from
+# Mongo by the proven-performers pull; refreshed alongside the index.
+try:
+    with open(os.path.join(os.path.dirname(__file__), "proven_performers.json")) as _f:
+        PROVEN = json.load(_f)
+except Exception:
+    PROVEN = {}
+
 
 def _ask_json(prompt, max_tokens=8000):
     msg = _client.messages.create(
@@ -110,12 +119,20 @@ Return a JSON object with EXACTLY these keys:
      "creative_direction":"shot list / visual direction (Video) or image concept (Image)",
      "rationale":"why this ad will work for THIS client",
      "proof":"the 80/20 basis — cite the CPES/ROAS proof + the client edge",
-     "weight":"mostly-historical|balanced|mostly-research"}}
+     "weight_basis":"mostly-historical|balanced|mostly-research"}}
  ],
+ "go_to_market_20": {{
+     "video_script": "a full owner-video script tailored to THIS client (their identity + the whitespace angle), ready for an editor",
+     "primary_text": "the tailored primary text for THIS client (brand voice)",
+     "hook_first_150": "the FIRST 150 characters of that primary text — the scroll-stopping hook (this is what shows before 'see more')",
+     "headline": "the tailored headline for THIS client",
+     "cta_button": "Get Quote",
+     "rationale": "why this beats the generic default for this client — cite identity + whitespace + a concern"
+ }},
  "headline_recommendation": "the single highest-priority ad to build first, and why"
 }}
 
-Generate 6 ad_concepts, ranked by priority (1 = build first). Lead with mostly-historical proven concepts; include 1-2 that exploit this client's whitespace. Brand voice: premium-but-approachable local painter; homeowner avatar = Gen X / Boomer / affluent; no financing language; 'curating quality', not 'surviving budget'. Scripts ready to hand to an editor."""
+Generate 6 ad_concepts, ranked by priority (1 = build first). Lead with mostly-historical proven concepts; include 1-2 that exploit this client's whitespace. The go_to_market_20 is the CLIENT-SPECIFIC recommendation (the 20%) — it must be tailored to this client, not generic. Brand voice: premium-but-approachable local painter; homeowner avatar = Gen X / Boomer / affluent; no financing language; 'curating quality', not 'surviving budget'. Scripts ready to hand to an editor."""
 
     data = _ask_json(prompt, max_tokens=16000) or {}
     data.setdefault("research", {})
@@ -124,6 +141,25 @@ Generate 6 ad_concepts, ranked by priority (1 = build first). Lead with mostly-h
     data.setdefault("ad_concepts", [])
     data.setdefault("headline_recommendation", "")
     data["index_built_at"] = INDEX.get("built_at")
+
+    # Go-to-Market Strategy: 80% = proven, pre-filled defaults (portfolio-wide, accept-as-is);
+    # 20% = this client's tailored recommendation (from research/identity/competition).
+    data["go_to_market"] = {
+        "eighty_percent": {
+            "primary_text": (PROVEN.get("defaults") or {}).get("primary_text", ""),
+            "hook_first_150": (PROVEN.get("defaults") or {}).get("hook_first_150", ""),
+            "headline": (PROVEN.get("defaults") or {}).get("headline", ""),
+            "cta_button": (PROVEN.get("defaults") or {}).get("cta_button", "Get Quote"),
+            "creative_type": (PROVEN.get("defaults") or {}).get("creative_type", ""),
+            "form": PROVEN.get("form", {}),
+            "top_video": PROVEN.get("top_video", []),
+            "top_image": PROVEN.get("top_image", []),
+            "top_headlines": PROVEN.get("top_headlines", []),
+            "top_primary_texts": PROVEN.get("top_primary_texts", []),
+            "source": "Portfolio-proven, trailing 90 days, ranked by CPES + booked ROAS",
+        },
+        "twenty_percent": data.pop("go_to_market_20", {}),
+    }
     return data
 
 

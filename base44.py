@@ -62,11 +62,11 @@ def upsert_research(client_id: str, payload: dict) -> dict:
 
 
 def update_research_fields(client_id: str, fields: dict) -> dict:
-    """Merge specific fields into the client's RI record (read-modify-write, like set_status). Used
-    for the late two-stage publish (competitor_ad_intel + angle_intelligence arrive after the core
-    report). Merges with existing so a partial PUT can't wipe already-written fields."""
+    """Write specific fields onto the client's RI record. Base44 PUT MERGES (verified), so we send
+    ONLY the changed fields — never the whole record. Re-PUTting the full record re-validates every
+    field and was throwing 422s under concurrent writes; a partial write avoids that."""
     existing = get_research_record(client_id)
-    body = {**(existing or {}), "client_id": client_id, **fields}
+    body = {"client_id": client_id, **fields}
     if existing:
         _request("PUT", f"{BASE}/entities/{ENTITY}/{existing['id']}", json=body).raise_for_status()
     else:
@@ -75,11 +75,11 @@ def update_research_fields(client_id: str, fields: dict) -> dict:
 
 
 def set_status(client_id: str, status: str, note: str = ""):
-    """Flip the run status so the UI can show Running / Done / Error. Best-effort — callers in the
-    request path should tolerate failure (a Base44 blip shouldn't crash the endpoint)."""
+    """Flip the run status so the UI can show Running / Done / Error. Partial PUT (Base44 merges),
+    so it can't wipe other fields and won't re-validate the whole record."""
     existing = get_research_record(client_id)
     body = {"client_id": client_id, "status": status, "status_note": note}
     if existing:
-        _request("PUT", f"{BASE}/entities/{ENTITY}/{existing['id']}", json={**existing, **body}).raise_for_status()
+        _request("PUT", f"{BASE}/entities/{ENTITY}/{existing['id']}", json=body).raise_for_status()
     else:
         _request("POST", f"{BASE}/entities/{ENTITY}", json=body).raise_for_status()

@@ -1,0 +1,267 @@
+{
+  "built_window": "trailing 90 days",
+  "ranked_by": "cost per estimate set (CPES) + booked ROAS",
+  "defaults": {
+    "creative_type": "Video (owner talking-head) \u2014 top static alt: owner/family image",
+    "cta_button": "Get Quote",
+    "headline": "Get a Free Estimate Today!",
+    "primary_text": "My name is {Owner}{ and my wife {Name}} and I own {Company}.\nWe serve {areas} \u2014 and we're incredibly honored to be part of these amazing communities.\n\nOur clients tell us they paint their homes because they want it to look fresher, feel healthier, and be a representation of them \u2014 instead of what the last homeowner or their builder chose.\n\nRight now is a great time to book \u2014 we're currently offering {up to $500 off / 10% off} when you book this month.\n\nJust click or tap 'Get Quote' to get your FREE quote today.\nWe're looking forward to working with you!\n\u2014 {Owner Name}, {Company}",
+    "hook_first_150": "My name is {Owner} and I own {Company}. We serve {areas} \u2014 and we're incredibly honored to be part of these amazing communities."
+  },
+  "form": {
+    "name": "All Services Volume \u2014 DQ Form (HOM standard)",
+    "form_type": "Meta Instant Form \u2014 'Higher intent' with disqualifying questions",
+    "why": "Qualifying form w/ a timeline disqualifier lifts set-rate vs. a bare instant form (~10% vs ~3% CR in our form study).",
+    "pages": [
+      {
+        "page": 1,
+        "name": "Intro",
+        "type": "Intro screen",
+        "detail": "Brand image + headline: 'Get your FREE painting estimate.' One-line value prop. 0 questions."
+      },
+      {
+        "page": 2,
+        "name": "Qualifying questions",
+        "type": "Questions",
+        "question_count": 3,
+        "questions": [
+          "What service do you need? (Interior / Exterior / Cabinet / Multiple) \u2014 multiple choice",
+          "When are you looking to start? (ASAP / 1\u20133 months / 3+ months / Just exploring) \u2014 timeline DISQUALIFIER",
+          "What's your biggest concern, or what would you most like done? \u2014 open text (the verbatim VOC 'concerns' question)"
+        ]
+      },
+      {
+        "page": 3,
+        "name": "Contact info",
+        "type": "Contact",
+        "question_count": 4,
+        "questions": [
+          "Full name (prefill)",
+          "Phone (prefill)",
+          "Email (prefill)",
+          "Zip code"
+        ]
+      },
+      {
+        "page": 4,
+        "name": "Completion",
+        "type": "Thank-you screen",
+        "detail": "'We'll reach out shortly to schedule your free estimate.' + button to website/call."
+      }
+    ],
+    "confirm_note": "Exact question wording is the HOM standard \u2014 confirm against the live winning form in Lead Center before publishing."
+  },
+  "top_video": [
+    {
+      "adName": "Honored Messaging Spotlight Owner Ad",
+      "client": "Zeuli Paint - MN/WI",
+      "cpes": 27,
+      "sets": 18,
+      "roas": 40.8
+    },
+    {
+      "adName": "1% LAL | dq form white interior b roll | Honored MSG",
+      "client": "Roll Call Painting - Wichita, KS",
+      "cpes": 45,
+      "sets": 11,
+      "roas": 18.4
+    },
+    {
+      "adName": "CBA| BC 5 HL 7 CR:spray b roll 1",
+      "client": "Ovo Painting - Atlanta, GA",
+      "cpes": 45,
+      "sets": 10,
+      "roas": 0.0
+    },
+    {
+      "adName": "CBA | cab v1 | BC 7 HL 11 D1",
+      "client": "Top Empire Painting - Raleigh, NC",
+      "cpes": 50,
+      "sets": 13,
+      "roas": 8.5
+    },
+    {
+      "adName": "CBA BC 4 HL 6 CR: OIntro Video",
+      "client": "216 Painting - Cleveland, OH",
+      "cpes": 68,
+      "sets": 6,
+      "roas": 2.8
+    },
+    {
+      "adName": "SMS VERIFY S2- CBA - Exterior B Roll V/O - 2026 - Copy",
+      "client": "Alpha & Omega Painters - Burnsville, NC",
+      "cpes": 75,
+      "sets": 7,
+      "roas": 0.0
+    },
+    {
+      "adName": "CBA FULL FHP - Foothills Painting LLC - Benjamin Landusky / CBO / Leadform / ANDRMD / V1 / 2785 V5 - Copy",
+      "client": "Foothills Painting - Fort Collins, CO",
+      "cpes": 85,
+      "sets": 5,
+      "roas": 0.0
+    },
+    {
+      "adName": "HQ | BC 6 HL1 D1 cab v1",
+      "client": "Excellence Custom Painting Inc.",
+      "cpes": 85,
+      "sets": 16,
+      "roas": 13.2
+    }
+  ],
+  "top_image": [
+    {
+      "adName": "CBA - family image | BC 1 | HL 1 | D 1",
+      "client": "Premier Painting of LA - New Orleans, LA",
+      "cpes": 34,
+      "sets": 16,
+      "roas": 41.4
+    },
+    {
+      "adName": "CBA - OIMAGE 2 | BC 1 | HL 1 | D 1 - A",
+      "client": "Breeze Painting - Charleston, SC",
+      "cpes": 42,
+      "sets": 35,
+      "roas": 14.6
+    },
+    {
+      "adName": "AI IMG | Honored Messaging Spotlight Owner Ad - Copy",
+      "client": "Zeuli Paint - MN/WI",
+      "cpes": 46,
+      "sets": 63,
+      "roas": 55.7
+    },
+    {
+      "adName": "CBA Top 50%BC 6 HL 6 CR: OIMAGE1",
+      "client": "216 Painting - Cleveland, OH",
+      "cpes": 54,
+      "sets": 9,
+      "roas": 29.8
+    },
+    {
+      "adName": "HQ BC 8 HL 9 CR: Oimage2",
+      "client": "Elevate Painting",
+      "cpes": 71,
+      "sets": 10,
+      "roas": 0.0
+    },
+    {
+      "adName": "HQ- grid image 2 | BC 3 HL 4 D1",
+      "client": "KenJax Painting - McPherson, KS",
+      "cpes": 104,
+      "sets": 7,
+      "roas": 7.4
+    },
+    {
+      "adName": "CBA | Oimage 2 | BC 7 HL 11 D1",
+      "client": "Top Empire Painting - Raleigh, NC",
+      "cpes": 105,
+      "sets": 4,
+      "roas": 9.6
+    },
+    {
+      "adName": "CBA | BC 7 HL8 D1 grid 1",
+      "client": "Excellence Custom Painting Inc.",
+      "cpes": 106,
+      "sets": 5,
+      "roas": 30.4
+    }
+  ],
+  "top_headlines": [
+    {
+      "headline": "\ud83c\udfe0 Free Paint Upgrade for your Painting Project + Free Estimate \ud83d\udc49",
+      "cpes": 20,
+      "sets": 8,
+      "clients": 1
+    },
+    {
+      "headline": "Planners Save $500 on 2025 Exterior Painting",
+      "cpes": 94,
+      "sets": 22,
+      "clients": 1
+    },
+    {
+      "headline": "Get a Free Estimate Today!",
+      "cpes": 150,
+      "sets": 38,
+      "clients": 1
+    },
+    {
+      "headline": "Schedule Painting Estimate!",
+      "cpes": 157,
+      "sets": 20,
+      "clients": 2
+    },
+    {
+      "headline": "Schedule Free Estimate",
+      "cpes": 164,
+      "sets": 32,
+      "clients": 3
+    },
+    {
+      "headline": "Handsome and modest painter seeks lovely new clients",
+      "cpes": 228,
+      "sets": 17,
+      "clients": 1
+    },
+    {
+      "headline": "The Homes Getting Compliments This Summer All Have One Thing in Common",
+      "cpes": 236,
+      "sets": 16,
+      "clients": 1
+    },
+    {
+      "headline": "Schedule Your Free Estimate!",
+      "cpes": 249,
+      "sets": 8,
+      "clients": 2
+    }
+  ],
+  "top_primary_texts": [
+    {
+      "cpes": 77,
+      "sets": 13,
+      "text": "How planners are saving hundreds of dollars off their 2025 exterior painting projects.\n\nScratch it off the to do list. 2025 is going to be a great year and many homeowners have reached out saying its their year to paint. \n\nThey've decided to reach out now as we're offering an early bird discount when homeowners book their exteriors now. \n\nBut why do we do this discount? Simple - it helps us fill our calendar and continue to give our painters work. \n\nAnd if it helps us, if should help you too. \n\nThis is why when you book your 2025 exterior project with us his month, you will save $500 OFF your project. \n\nSimply click or tap 'Get Quote' Below.\n\nI look forward to serving you and your family.\n\nBrandon, Owner\nAlpha Omega Painters"
+    },
+    {
+      "cpes": 84,
+      "sets": 13,
+      "text": "My name is Ismael, and my wife Elizabeth and I own Top Empire Painting. We serve Raleigh, Cary, Apex, and surrounding North Carolina communities  and we\u2019re incredibly honored to work in the homes of the people who make this area so special.\n\nThe other day, my marketing guy  asked me:\n\n\u201cWhy do people choose you over the other painting companies?\u201d\n\nI thought about it and said:\n\nIt really comes down to this:\n\n\u2192  We actually care about the people we work with.\n\u2192  We built this business from the ground up with integrity- no shortcuts.\n\nWe didn\u2019t inherit a company or start this as a side gig.\nPainting was something I chose to master and over time, it became the foundation for a business that could support our family, serve our community, and give back in a meaningful way.\n\nFrom day one, we\u2019ve built our reputation on:\n\n\u2705 Respect for your home\n\u2705 A crew that\u2019s clean, professional, and kind\n\u2705 Honest quotes and clear communication\n\u2705 Prep work done right \u2014 no rushing, no cutting corners\n\u2705 A job that looks good not just now\u2026 but years from now\n\nAnd when something needs to be made right \u2014 we do it. No questions asked.\n\nIf you\u2019ve been thinking about painting your home, now\u2019s a great time.\n\nHomeowners who book their estimate early can lock in priority scheduling and even save with our seasonal offers.\n\nJust click or tap \u2018Get Quote\u2019 to schedule your free estimate today.\n\nWe\u2019d love to learn more about your project and show you what Top Empire Painting is all about.\n\nIsmael & Elizabeth Mejia\nOwner, Top Empire Painting\n (919) 825-6179\n www.topempirepainting.com\n\nProudly serving Raleigh, Cary, Apex, Chapel Hill, and surrounding NC communities"
+    },
+    {
+      "cpes": 91,
+      "sets": 12,
+      "text": "It started with a few rooms in college.\nSome side gigs. A couple rolls of tape. One brush.\nBut that brush turned into a calling  and OVO Painting was born.\n\nI\u2019m Sebastian, and I left the corporate world to start something I believed in:\n\nA company that actually cares about people, process, and results.\n\nWe\u2019re not some fly-by-night paint crew. We\u2019re part of a national group of home service pros committed to raising the bar  with integrity, consistency, and craftsmanship that lasts.\n\nHere\u2019s what that means for you:\n\n \u2714\ufe0f Complimentary color consultation\n \u2714\ufe0f A dedicated project manager (yes, an actual human who keeps the job moving)\n \u2714\ufe0f Meticulous prep and clean workspaces\n \u2714\ufe0f 10% off when you book your project this month\n\nWe specialize in interior, exterior, and cabinet painting \u2014 and we treat your home with the kind of respect that\u2019s hard to find these days.\n\nIf you\u2019ve been burned before or just want a painting experience that\u2019s stress-free, clean, and built around YOU  we\u2019d love to help.\nClick \u201cGet Quote\u201d to start your free estimate.\n\nSebastian Thomas\n Owner, OVO Painting\n \ud83d\udcde (404) 630-2720 | ovopainting.com\n Proudly serving Atlanta homeowners who expect more than a fresh coat of paint."
+    },
+    {
+      "cpes": 120,
+      "sets": 52,
+      "text": "Hi. I\u2019m Caio.\nI run a painting company called Excellence Custom Painting.\nAnd despite the name, I still trip over ladders, drink way too much coffee, and triple-check my drop cloths.\n\nI\u2019ve been painting since I was 13.\nStarted with hand-me-down tools in Brazil.\n\nMoved to the U.S., learned American standards, and eventually started this company with my wife, Melanie \u2014 and a very enthusiastic French Bulldog named Leo.\nOur promise?\n\nNo half-done prep. No disappearing crews. No \u201cwe\u2019ll fix it later\u201d lies.\n\nWe actually:\n\n \u2714\ufe0f Mask off your floors\n \u2714\ufe0f Sand until it\u2019s smooth\n \u2714\ufe0f Apply finishes that last\n \u2714\ufe0f Clean up every night\n \u2714\ufe0f And show up when we say we will\n\nIf your last paint job felt like a scam \u2014 we\u2019re here to restore your faith.\n\nTap \u201cGet Quote\u201d to schedule a consultation.\nAnd if you\u2019re just here for the dog pics, that\u2019s okay too.\n\nCaio\nOwner, Excellence Custom Painting"
+    },
+    {
+      "cpes": 157,
+      "sets": 16,
+      "text": "I'm Dave. I paint houses. I also need to eat occasionally.\nGroundbreaking stuff, I know.\n\nLook, I could tell you that Proper Painters is \"a cut above the rest\" or that we \"exceed expectations,\" but you've heard that from every painter who bought a Facebook ad this week. \n\nSo let me try something radical: honesty mixed with moderate charm.\n\nHere's what we actually do:\n\n\u2705 Interior & exterior painting (the classics)\n\u2705 Deck and fence staining (because wood gets sad without it)\n\u2705 Carpentry, board replacement, drywall repairs (we fix things before painting over the evidence)\n\u2705 Free color consultations (so you don't pick a shade you'll hate in 6 months)\n\nRight now, book this month and save $500-$1000* on your project. You also get strong 2-4 year warranties and communication that doesn't leave you wondering if we still exist.\n\nHere's what actual humans have said about us:\n\n\"Superb. Hire this company if you need painting done. The project was professionally managed from beginning to end.\" -Thomas Hockey, Bon Air\n\n\"Absolute hands down the best in customer service, great pricing, and excellent painters.\" -Christina Paczkowski, Chesterfield\n\nClick this ad and you'll fill out a quick form to meet with me. I'll show up with ideas, a quote, and possibly too much enthusiasm. \n\nYou can use these ideas even if you decide I'm not your guy. No hard feelings.\n\nIf you ARE suitably impressed, we can discuss the financially prudent decision to hire me and my team of painters who show up on time and don't ghost you midway through the job.\n\nClick 'Get Quote' and let's make your house look less sad.\n\nFingers crossed,\n\nDave\nOwner at Proper Painters / Mediocre Joke Teller / Surprisingly Good at Color Theory\n\nP.S. If you're not painting right now, tell your friends about me. Preferably using words like \"impressive\" and \"you should hire Dave immediately.\"\n\n*Discount varies by project size. We're not wizards."
+    },
+    {
+      "cpes": 173,
+      "sets": 36,
+      "text": "My name is Ronnie and I own Premier Painting of Louisiana. I serve Raceland and surrounding areas and I\u2019m incredibly honored to be part of these amazing communities. \n\nOur clients tell us that they paint their homes because they want it to look fresher, feel healthier and be a representation of them instead of what the last homeowner or their builder chose.\n\nRight now is a great time to book your painting project as we\u2019re currently offering hundreds off our painting services when you book this month. \n\n \u2714\ufe0f A complimentary color consultation to bring out the best in your home\n \u2714\ufe0f Premium paint designed to last through years of sun, storms, and wear\n \u2714\ufe0f Clear communication, clean job sites, and a promise to show up when we say we will\n\nTo start the conversation, click or tap 'Get Quote' and schedule your FREE quote today.\n\nWe are looking forward to working with you!\n\nRonnie Owner\nPremier Painting of Louisiana\n(985)238-3400"
+    },
+    {
+      "cpes": 185,
+      "sets": 16,
+      "text": "My name is Dave Weatherford and I own Proper Painters. \nWe serve the West End, Tuckahoe, and Richmond area and Northwest Richmond and are incredibly honored to be part of these amazing communities. \n\nHomeowners tell us that they paint their homes because they want it to look fresher, feel healthier and be a representation of them instead of what the last homeowner or their builder chose.\n\nRight now is a great time to book your painting project as we\u2019re currently offering $500-$1000* OFF your painting project when you book this month. \n\nYou also get:\n\n\ud83d\udc49 Free Color Consultations --> so you can make confident decisions\n\ud83d\udc49 Strong 2-4 Year Warranties --> so you feel safe hiring us\n\ud83d\udc49 Clear and Quick Communication --> so you're never left wondering\n\nTo start the conversation, click or tap 'Get Quote' and schedule your FREE quote appointment today.\n\nWe are looking forward to working with you!\n\nDave Weatherford, Owner\nProper Painters\n804-409-9727\nhttps://properpainters.com/\n\n*Dollar value resembles 10% off of your quote, depending upon the size of your project."
+    },
+    {
+      "cpes": 224,
+      "sets": 49,
+      "text": "My name is Dan and I own Zeuli Paint. I serve the St. Croix Valley and Woodbury areas and I\u2019m incredibly honored to be part of these amazing communities. \n\nOur clients tell us that they paint their homes because they want it to look fresher, feel healthier and be a representation of them instead of what the last homeowner or their builder chose.\n\nRight now is a great time to book your painting project as we\u2019re currently offering up to 10% off on our painting services when you book this month. \n\nJust click or tap 'Get Quote' to get started with your FREE quote today.\n\nWe are looking forward to working with you!\n\nDan Zeuli\nZeuli Paint"
+    }
+  ],
+  "templates": {
+    "A_honored_owner": "My name is {Owner}... we're incredibly honored... book this month {offer}... 'Get Quote'.",
+    "B_humble_story": "{disarming hook} {origin} the industry let homeowners down \u2014 so I built the company I wish existed. {checklist} 'Get Quote'.",
+    "C_early_bird_offer": "How planners are saving hundreds off their {year} exterior... book now save $500... 'Get Quote'."
+  }
+}
