@@ -112,14 +112,16 @@ Return a JSON object with EXACTLY these keys:
  "ad_concepts": [
    {{"priority":1,"asset_name":"short punchy name","video_or_image":"Video|Image",
      "awareness_stage":"Top of Funnel|Middle of Funnel|Bottom of Funnel","service":["Exterior|Interior|Cabinet"],
-     "creative_angle":"Owner / Founder Identity","offer":"Free estimate",
-     "script_variation_1":"full script if Video, or primary text if Image — brand voice, ready for an editor",
+     "creative_angle":"Owner / Founder Identity","offer":"the offer this ad leads with",
+     "headline":"the ad headline","cta_button":"Get Quote",
+     "primary_text":"the full ad primary text for THIS client (real client name/cities filled in, brand voice, ready to paste)",
+     "script_variation_1":"if Video: the full video script (ready for an editor); if Image: a primary-text variation",
      "script_variation_2":"a distinct variation",
      "script_variation_3":"a distinct variation",
-     "creative_direction":"shot list / visual direction (Video) or image concept (Image)",
-     "rationale":"why this ad will work for THIS client",
-     "proof":"the 80/20 basis — cite the CPES/ROAS proof + the client edge",
-     "weight_basis":"mostly-historical|balanced|mostly-research"}}
+     "creative_direction":"shot list / visual direction (Video) or image concept + on-image text (Image)",
+     "recommended_form":"All Services Volume DQ Form | 216-style Qualifying Form",
+     "rationale":"one line: why this ad, for this client",
+     "weight_basis":"proven-playbook|client-specific"}}
  ],
  "go_to_market_20": {{
      "video_script": "a full owner-video script tailored to THIS client (their identity + the whitespace angle), ready for an editor",
@@ -132,7 +134,7 @@ Return a JSON object with EXACTLY these keys:
  "headline_recommendation": "the single highest-priority ad to build first, and why"
 }}
 
-Generate 6 ad_concepts, ranked by priority (1 = build first). Lead with mostly-historical proven concepts; include 1-2 that exploit this client's whitespace. The go_to_market_20 is the CLIENT-SPECIFIC recommendation (the 20%) — it must be tailored to this client, not generic. Brand voice: premium-but-approachable local painter; homeowner avatar = Gen X / Boomer / affluent; no financing language; 'curating quality', not 'surviving budget'. Scripts ready to hand to an editor."""
+Generate exactly 10 ad_concepts — "The Top 10 Ads to Build" — ranked by priority (1 = build first), each a COMPLETE, ready-to-build spec (a media buyer should be able to implement it as-is). Make ~7 of them proven-playbook (weight_basis "proven-playbook" — model on our winning angles/copy above, tailored to this client) and ~3 client-specific (weight_basis "client-specific" — exploit this client's whitespace/objections). Mix Video and Static. Fill the real client name and cities into primary_text/scripts (do NOT leave placeholder tokens). The go_to_market_20 is the single sharpest CLIENT-SPECIFIC recommendation. Brand voice: premium-but-approachable local painter; homeowner avatar = Gen X / Boomer / affluent; no financing language; 'curating quality', not 'surviving budget'. Scripts ready to hand to an editor."""
 
     data = _ask_json(prompt, max_tokens=16000) or {}
     data.setdefault("research", {})
