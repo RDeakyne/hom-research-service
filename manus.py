@@ -17,7 +17,8 @@ KEY = os.environ.get("MANUS_API_KEY", "")
 BASE = os.environ.get("MANUS_BASE", "https://api.manus.ai")
 PROFILE = os.environ.get("MANUS_PROFILE", "manus-1.6")
 POLL_SECONDS = int(os.environ.get("MANUS_POLL_SECONDS", "10"))
-MAX_WAIT = int(os.environ.get("MANUS_MAX_WAIT", "1500"))     # 25 min hard cap
+MAX_WAIT = int(os.environ.get("MANUS_MAX_WAIT", "2700"))         # 45 min hard cap (discovery is heavier)
+MIN_COMPETITORS = int(os.environ.get("MANUS_MIN_COMPETITORS", "10"))
 
 # JSON schema Manus must return — mirrors the competitor_ad_intel contract. Manus's structured-output
 # subset requires EVERY object to list ALL properties in `required` and set additionalProperties=false.
@@ -66,46 +67,48 @@ def _h():
     return {"x-manus-api-key": KEY, "Content-Type": "application/json"}
 
 
-def _mission(client_name, advertisers):
-    lines = "\n".join(
-        f"- {a['name']} — {a.get('city') or ''}{(', ' + a['region']) if a.get('region') else ''}"
-        f"; website: {a.get('website') or 'unknown'}"
-        f"; facebook: {a.get('facebook_page_url') or 'unknown (find it by searching the Ad Library by name)'}"
-        for a in advertisers)
-    return f"""META AD LIBRARY COMPETITOR AD TEARDOWN — for {client_name}, a residential painting contractor.
+def _mission(client_name, city, region, seeds, min_competitors):
+    seed_lines = "\n".join(
+        f"- {s['name']} — {s.get('city') or city}; website: {s.get('website') or 'unknown'}; "
+        f"facebook: {s.get('facebook_page_url') or 'unknown'}"
+        for s in seeds) or "(none provided — discover entirely from the Ad Library)"
+    return f"""META AD LIBRARY — LOCAL PAINTING COMPETITOR DISCOVERY + AD TEARDOWN
+Market: {city}, {region}.   Client to EXCLUDE from results: {client_name}.
 
-Analyze EACH advertiser below in the Meta Ad Library. IMPORTANT: the Ad Library is searchable BY NAME —
-you do NOT need a Facebook Page URL to find a business. Search hard before giving up.
+GOAL: Find AT LEAST {min_competitors} LOCAL residential painting contractors that are CURRENTLY RUNNING ADS
+in the Meta Ad Library and serve {city}, {region} (or the surrounding metro). Then tear down each one's ads.
+This is a DISCOVERY task — do not stop at a fixed list. Keep searching until you have at least {min_competitors}
+distinct local painting advertisers (or you have exhausted the market and documented why fewer exist).
 
-ADVERTISERS TO FIND:
-{lines}
+STEP 1 — DISCOVER advertisers (target {min_competitors}+):
+1. Go to https://www.facebook.com/ads/library/ , set Ad category = "All ads", Country = United States.
+2. Search keyword combinations and browse results: "{city} painting", "{city} painters", "painting {region}",
+   "exterior painting {city}", "interior painting {city}", "cabinet painting {city}", "house painters {city}".
+3. ALSO confirm these already-known local painters in the Ad Library (use them as starting points):
+{seed_lines}
+4. For each advertiser found, open it and confirm it is a PAINTING contractor that serves {city}/{region}
+   (check the page/website location). Collect DISTINCT local painting advertisers that are running ads.
+5. The Ad Library is searchable BY NAME — you do not need a Facebook Page URL. Try names with and without the city.
+6. If you cannot reach {min_competitors} truly local advertisers, WIDEN to the surrounding metro / {region},
+   then to nearby cities, and note in sourcing_note how far you had to widen. Do NOT include {client_name}.
+   NEVER invent advertisers — only include real Pages you actually found running ads.
 
-HOW TO FIND EACH ADVERTISER (do this thoroughly — do not skip after one try):
-1. Go to https://www.facebook.com/ads/library/ , set Ad category = "All ads" and Country = United States.
-2. Type the business NAME into the search box and search by advertiser / Page. Review the matching Pages.
-3. If several Pages match the name, pick the one matching this business's CITY/STATE or WEBSITE. If a website
-   is given, open it and find its Facebook link to confirm the exact Page, then search that Page in the Library.
-4. Also try the name WITH and WITHOUT the city (e.g. "Guy Painting" and "Guy Painting Indianapolis").
-5. A Page can exist with ZERO active ads — that is NOT "not found": set ads_active=0 and page_unresolved=false.
-6. Only set page_unresolved=true if, after searching by name (with and without city) AND checking the website,
-   no Facebook Page for THIS specific business exists at all. Do not skip a real business prematurely.
-
-FOR EACH ADVERTISER WITH A PAGE, find:
-1. AD INVENTORY — how many ads are currently active; formats (video / image / carousel); the oldest active ad
-   and the date it started.
-2. AD LONGEVITY (most important) — list ads running 60+ days (proven). For each: start date, days running,
-   the offer, and the opening line / hook. 60+ days = proven, 30-59 = promising, under 30 = untested.
+STEP 2 — TEAR DOWN each advertiser you found. For each:
+1. AD INVENTORY — how many ads are currently active; formats (video / image / carousel); the oldest active ad + date.
+2. AD LONGEVITY (most important) — list ads running 60+ days (proven). For each: start date, days running, the
+   offer, and the opening line / hook. 60+ days = proven, 30-59 = promising, under 30 = untested.
 3. OFFER — the intro offer they lead with and how it's framed (discount / urgency / risk-reversal / free estimate).
-4. HOOK & MESSAGING — the opening line of the longest-running ad; the problem/emotional state hit in the first
-   3 seconds; language patterns repeated across their creative.
+4. HOOK & MESSAGING — opening line of the longest-running ad; the problem/emotional state hit in the first 3
+   seconds; language patterns repeated across their creative.
 5. DOMINANT ANGLES — the 1-3 main angles they lean on. Use these angle names where they fit:
 {tax.list_for_prompt()}
 
-THEN, across ALL advertisers (the WHITESPACE — the most valuable output):
+STEP 3 — WHITESPACE across ALL advertisers found (the most valuable output):
 - Which of the angles above is NOBODY running?
 - Which homeowner objection is NOBODY addressing in their ads?
 - What obvious differentiator is invisible in everyone's ads?
 
+Return AT LEAST {min_competitors} advertisers in the `advertisers` array if they exist in/around this market.
 Quote real ad copy verbatim; never invent ads. Return the structured JSON result."""
 
 
@@ -128,18 +131,19 @@ def _extract(messages):
     return None
 
 
-def teardown(client_name, advertisers, log=print):
-    """advertisers: [{name, facebook_page_url}]. Returns competitor_ad_intel dict (EMPTY-shaped on
-    failure, with a sourcing_note). Returns None only if Manus is not configured / no advertisers."""
-    if not KEY or not advertisers:
+def teardown(client_name, city, region, seeds, log=print, min_competitors=MIN_COMPETITORS):
+    """Discover >= min_competitors local painting advertisers in the Ad Library (seeded by `seeds`,
+    a list of {name, facebook_page_url, website, city}) and tear down each. Returns competitor_ad_intel
+    dict (EMPTY-shaped on failure). Returns None only if Manus is not configured."""
+    if not KEY:
         return None
     try:
         with httpx.Client(timeout=60) as c:
             r = c.post(f"{BASE}/v2/task.create", headers=_h(), json={
-                "message": {"content": _mission(client_name, advertisers)},
+                "message": {"content": _mission(client_name, city, region, seeds or [], min_competitors)},
                 "agent_profile": PROFILE, "interactive_mode": False,
                 "hide_in_task_list": True, "structured_output_schema": SCHEMA,
-                "title": f"Ad Library teardown — {client_name}",
+                "title": f"Ad Library discovery + teardown — {client_name}",
             })
             r.raise_for_status()
             task_id = r.json()["task_id"]
