@@ -12,6 +12,7 @@ Reads the precomputed index at import; no Mongo at runtime.
 import os, json, re
 from anthropic import Anthropic
 import angle_taxonomy as tax
+import seasonal
 
 MODEL = os.environ.get("ANGLE_MODEL", "claude-sonnet-4-6")
 _client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
@@ -94,6 +95,9 @@ Competitor WHITESPACE (angles nobody runs): {white.get('angles_nobody_runs')}
 Objections nobody addresses: {white.get('objections_nobody_addresses')}
 Homeowner concerns: {concerns_str}
 Complaints about local painters: {complaints_str}
+
+=== SEASONAL OFFER CALENDAR (offers MUST match the current season + the client's climate) ===
+{seasonal.context_for_prompt(services=services, region=region)}
 
 ANGLE TAXONOMY (use these names for creative_angle):
 {tax.list_for_prompt()}
