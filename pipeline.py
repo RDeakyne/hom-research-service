@@ -14,14 +14,17 @@ def _demo_feature(client_id):
     return _V2_ALL or client_id in _DEMO_IDS
 
 
-def _advertisers(cl, comps):
-    """Manus advertiser list: the client's own FB page (from Company Info) + each competitor's
-    resolved Facebook Page. Pages we couldn't resolve go through empty — Manus flags them."""
+def _advertisers(cl, comps, city, region):
+    """Manus advertiser list: the client + each competitor, with name, FB page (if known), website,
+    and city/state. Manus searches the Ad Library BY NAME, using website/city to disambiguate — so a
+    missing FB URL is fine, not a dead end."""
     out = [{"name": cl.get("name", "This client"),
-            "facebook_page_url": ((cl.get("social_media") or {}).get("facebook") or "").strip()}]
+            "facebook_page_url": ((cl.get("social_media") or {}).get("facebook") or "").strip(),
+            "website": (cl.get("website") or "").strip(), "city": city, "region": region}]
     for c in (comps or []):
         out.append({"name": c.get("name", ""),
-                    "facebook_page_url": (c.get("facebook_page_url") or "").strip()})
+                    "facebook_page_url": (c.get("facebook_page_url") or "").strip(),
+                    "website": (c.get("website") or "").strip(), "city": city, "region": region})
     return out
 
 
@@ -209,7 +212,7 @@ def run(client_id: str, log=print):
     if v2:
         # Phase 2: competitor ad teardown via Manus (Meta Ad Library) — hands Manus the resolved pages.
         base44.set_status(client_id, "Running", "Tearing down competitor ads in the Meta Ad Library (Manus)...")
-        competitor_ad_intel = manus.teardown(name, _advertisers(cl, comps), log=log)
+        competitor_ad_intel = manus.teardown(name, _advertisers(cl, comps, city, region), log=log)
         # Phase 3: angle strategy from our Revenue Pro conversion data + competitors + concerns + identity.
         base44.set_status(client_id, "Running", "Building ad angle strategy from our conversion data...")
         angle_intelligence = angle.recommend(name, city, region, homeowner_concerns,

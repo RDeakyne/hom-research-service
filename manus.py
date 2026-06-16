@@ -11,6 +11,7 @@ is unset. Runs minutes (browsing), so the pipeline calls this as a late step and
 when it returns.
 """
 import os, time, json, httpx
+import angle_taxonomy as tax
 
 KEY = os.environ.get("MANUS_API_KEY", "")
 BASE = os.environ.get("MANUS_BASE", "https://api.manus.ai")
@@ -67,34 +68,45 @@ def _h():
 
 def _mission(client_name, advertisers):
     lines = "\n".join(
-        f"- {a['name']}: {a.get('facebook_page_url') or '(find their Facebook Page by name + city)'}"
+        f"- {a['name']} — {a.get('city') or ''}{(', ' + a['region']) if a.get('region') else ''}"
+        f"; website: {a.get('website') or 'unknown'}"
+        f"; facebook: {a.get('facebook_page_url') or 'unknown (find it by searching the Ad Library by name)'}"
         for a in advertisers)
     return f"""META AD LIBRARY COMPETITOR AD TEARDOWN — for {client_name}, a residential painting contractor.
 
-Go to https://www.facebook.com/ads/library/ , set Country = United States and Ad category = All ads,
-and search EACH advertiser below by their Facebook Page:
+Analyze EACH advertiser below in the Meta Ad Library. IMPORTANT: the Ad Library is searchable BY NAME —
+you do NOT need a Facebook Page URL to find a business. Search hard before giving up.
+
+ADVERTISERS TO FIND:
 {lines}
 
-FOR EACH ADVERTISER, find:
-1. AD INVENTORY — how many ads are currently active; the formats used (video / image / carousel);
-   the oldest currently-active ad and the date it started running.
-2. AD LONGEVITY (most important) — list ads still running 60+ days (proven/converting). For each:
-   start date, days running, the offer, and the opening line / hook. 60+ days = proven, 30-59 = promising,
-   under 30 = untested.
-3. OFFER — the intro offer they lead with and how it's framed (discount / urgency / risk-reversal /
-   financing / free estimate).
-4. HOOK & MESSAGING — the opening line of their longest-running ad; the problem or emotional state hit
-   in the first 3 seconds; language patterns repeated across their creative.
-5. DOMINANT ANGLES — the 1-3 main angles they lean on (e.g. before/after, owner identity, social proof,
-   seasonal urgency, risk reversal, problem/pain).
+HOW TO FIND EACH ADVERTISER (do this thoroughly — do not skip after one try):
+1. Go to https://www.facebook.com/ads/library/ , set Ad category = "All ads" and Country = United States.
+2. Type the business NAME into the search box and search by advertiser / Page. Review the matching Pages.
+3. If several Pages match the name, pick the one matching this business's CITY/STATE or WEBSITE. If a website
+   is given, open it and find its Facebook link to confirm the exact Page, then search that Page in the Library.
+4. Also try the name WITH and WITHOUT the city (e.g. "Guy Painting" and "Guy Painting Indianapolis").
+5. A Page can exist with ZERO active ads — that is NOT "not found": set ads_active=0 and page_unresolved=false.
+6. Only set page_unresolved=true if, after searching by name (with and without city) AND checking the website,
+   no Facebook Page for THIS specific business exists at all. Do not skip a real business prematurely.
 
-THEN, across ALL advertisers reviewed (the WHITESPACE — this is the most valuable output):
-- Which painting ad angles or hooks is NOBODY running?
+FOR EACH ADVERTISER WITH A PAGE, find:
+1. AD INVENTORY — how many ads are currently active; formats (video / image / carousel); the oldest active ad
+   and the date it started.
+2. AD LONGEVITY (most important) — list ads running 60+ days (proven). For each: start date, days running,
+   the offer, and the opening line / hook. 60+ days = proven, 30-59 = promising, under 30 = untested.
+3. OFFER — the intro offer they lead with and how it's framed (discount / urgency / risk-reversal / free estimate).
+4. HOOK & MESSAGING — the opening line of the longest-running ad; the problem/emotional state hit in the first
+   3 seconds; language patterns repeated across their creative.
+5. DOMINANT ANGLES — the 1-3 main angles they lean on. Use these angle names where they fit:
+{tax.list_for_prompt()}
+
+THEN, across ALL advertisers (the WHITESPACE — the most valuable output):
+- Which of the angles above is NOBODY running?
 - Which homeowner objection is NOBODY addressing in their ads?
 - What obvious differentiator is invisible in everyone's ads?
 
-If a Page cannot be found or has no ads, set page_unresolved=true for it and skip it — do NOT invent ads.
-Quote real ad copy verbatim. Return the structured JSON result."""
+Quote real ad copy verbatim; never invent ads. Return the structured JSON result."""
 
 
 def _extract(messages):
