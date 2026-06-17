@@ -209,20 +209,30 @@ def run(client_id: str, log=print):
         # Phase 2: competitor ad teardown via Manus (Meta Ad Library) — hands Manus the resolved pages.
         base44.set_status(client_id, "Running", "Tearing down competitor ads in the Meta Ad Library (Manus)...")
         competitor_ad_intel = manus.teardown(name, city, region, _competitor_seeds(comps, city, region), log=log)
-        # Phase 3: Meta Ad Strategy — prioritized, build-ready ad concepts. 80% from our portfolio
-        # conversion data (CPES/ROAS by angle + winning copy), 20% from this client's research/identity/
-        # competition. Maps to the portal's Content Asset fields for the one-click push to Meta Ads Content.
-        base44.set_status(client_id, "Running", "Building Meta Ad Strategy from our conversion data...")
-        meta_ad_strategy = angle.strategy(name, city, region, services, homeowner_concerns,
-                                          comps_complaints, competitor_ad_intel, identity_analysis)
-        # go_to_market is written as its OWN top-level field (Base44 drops sub-keys not in a field's
-        # defined schema, so the 80/20 go-to-market gets its own defined field).
-        gtm = meta_ad_strategy.pop("go_to_market", None) if isinstance(meta_ad_strategy, dict) else None
-        updates = {"status": "Done",
-                   "status_note": f"{len(fund)} FUND / {len(expansion)} expansion / "
-                                  f"{len(scored)-len(fund)-len(expansion)} excluded"}
+        # PERSIST the teardown immediately — a later step's failure must not throw away this 15-min result.
         if competitor_ad_intel is not None:
-            updates["competitor_ad_intel"] = competitor_ad_intel
+            try:
+                base44.update_research_fields(client_id, {"competitor_ad_intel": competitor_ad_intel})
+            except Exception as e:
+                log(f"competitor_ad_intel write failed: {e}")
+
+        # Phase 3: Meta Ad Strategy — prioritized, build-ready ad concepts. Wrapped so a generation/parse
+        # hiccup is NON-FATAL: identity + competitor_ad_intel already persisted; the run still finishes Done.
+        base44.set_status(client_id, "Running", "Building Meta Ad Strategy from our conversion data...")
+        meta_ad_strategy = gtm = None
+        try:
+            meta_ad_strategy = angle.strategy(name, city, region, services, homeowner_concerns,
+                                              comps_complaints, competitor_ad_intel, identity_analysis)
+            # go_to_market is written as its OWN top-level field (Base44 drops sub-keys not in a defined schema).
+            gtm = meta_ad_strategy.pop("go_to_market", None) if isinstance(meta_ad_strategy, dict) else None
+        except Exception as e:
+            log(f"meta_ad_strategy step failed (non-fatal): {str(e)[:200]}")
+
+        base44.set_status(client_id, "Running", "Finalizing...")
+        note = f"{len(fund)} FUND / {len(expansion)} expansion / {len(scored)-len(fund)-len(expansion)} excluded"
+        if not meta_ad_strategy:
+            note += " — ad strategy step skipped (re-run to retry)"
+        updates = {"status": "Done", "status_note": note}
         if meta_ad_strategy is not None:
             updates["meta_ad_strategy"] = meta_ad_strategy
         if gtm is not None:
