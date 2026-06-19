@@ -2,8 +2,9 @@
 Handles the parts that need reasoning + live web: competitors, review complaints, homeowner concerns.
 Returns JSON shaped to the Base44 ResearchIntelligence fields. Deterministic scoring lives in scoring.py.
 """
-import os, json, re
+import os, re
 from anthropic import Anthropic
+from jsonsalvage import salvage
 
 MODEL = os.environ.get("RESEARCH_MODEL", "claude-sonnet-4-6")
 _client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
@@ -12,17 +13,21 @@ EMPTY_TEARDOWN = {"common_hooks": "", "primary_texts": "", "headlines": "", "cta
 
 
 def _ask_json(prompt: str):
-    msg = _client.messages.create(
-        model=MODEL, max_tokens=4000, tools=WEB,
-        messages=[{"role": "user", "content": prompt + "\n\nReturn ONLY valid JSON, no prose, no markdown fences."}],
-    )
+    """Ask the model for JSON and recover it best-effort. Verbatim-quote prompts routinely yield a
+    stray unescaped quote/comma, and long answers truncate — so we NEVER let a parse error raise.
+    On unrecoverable output we return None; callers default with `or {}` / `or []` so one bad section
+    can't kill the whole run (the deterministic zip scoring must always survive). max_tokens matches
+    angle.py (8000) to cut down on truncation of the verbose identity/competitor answers."""
+    try:
+        msg = _client.messages.create(
+            model=MODEL, max_tokens=8000, tools=WEB,
+            messages=[{"role": "user", "content": prompt + "\n\nReturn ONLY valid JSON, no prose, no markdown fences."}],
+        )
+    except Exception:
+        return None
     text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
     text = re.sub(r"^```(json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
-    try:
-        return json.loads(text)
-    except Exception:
-        m = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
-        return json.loads(m.group(1)) if m else None
+    return salvage(text)
 
 
 def competitors(client_name, city, region, services, fund_zips):

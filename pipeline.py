@@ -140,9 +140,19 @@ def run(client_id: str, log=print):
 
     city, region = _city_region(cl.get("business_address"), "")
     base44.set_status(client_id, "Running", "Researching competitors, reviews, homeowner concerns...")
-    comps = research.competitors(name, city, region, services, [z["zip"] for z in fund] or zips)
-    comps_complaints = research.complaints(city, region)
-    homeowner_concerns = research.concerns(city, region)
+    # Each web-research section is best-effort: a model/parse/network hiccup in any ONE of them must
+    # never sink the run — the deterministic zip scoring above is the core deliverable. _ask_json
+    # already returns None on bad JSON; this guard also absorbs any unforeseen raise (a section just
+    # comes back empty and the report still ships).
+    def _safe(fn, default, label):
+        try:
+            return fn()
+        except Exception as e:
+            log(f"{label} failed (non-fatal): {str(e)[:200]}")
+            return default
+    comps = _safe(lambda: research.competitors(name, city, region, services, [z["zip"] for z in fund] or zips), [], "competitors")
+    comps_complaints = _safe(lambda: research.complaints(city, region), [], "complaints")
+    homeowner_concerns = _safe(lambda: research.concerns(city, region), [], "concerns")
 
     # Identity Analysis (Mission 1): how the client's own company describes itself vs. how the market
     # perceives it. Reads the client's Company Info (website/GBP/social + intake) for the self side and
@@ -151,7 +161,7 @@ def run(client_id: str, log=print):
     identity_analysis = None
     if _demo_feature(client_id):
         base44.set_status(client_id, "Running", "Analyzing brand identity & market perception...")
-        identity_analysis = research.identity(name, city, region, cl.get("website"), services, cl)
+        identity_analysis = _safe(lambda: research.identity(name, city, region, cl.get("website"), services, cl), None, "identity")
 
     broad_t, hq_t = _targeting(income_threshold)
     centroids = [(z["lat"], z["lng"]) for z in (fund or scored) if z["lat"] and z["lng"]]

@@ -11,6 +11,7 @@ Reads the precomputed index at import; no Mongo at runtime.
 """
 import os, json, re
 from anthropic import Anthropic
+from jsonsalvage import salvage
 import angle_taxonomy as tax
 import seasonal
 
@@ -33,68 +34,16 @@ except Exception:
     PROVEN = {}
 
 
-def _salvage_json(text):
-    """Best-effort parse of possibly-truncated model JSON: try direct, then a bracket-balanced repair
-    (close any open strings/arrays/objects) so a cut-off response still yields usable data."""
-    try:
-        return json.loads(text)
-    except Exception:
-        pass
-    m = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
-    if m:
-        try:
-            return json.loads(m.group(1))
-        except Exception:
-            pass
-    # repair truncation: walk the text, track depth, close open structures at the last safe point
-    depth = []
-    in_str = False
-    esc = False
-    last_safe = 0
-    s = text[text.find("{"):] if "{" in text else text
-    for i, ch in enumerate(s):
-        if esc:
-            esc = False; continue
-        if ch == "\\":
-            esc = True; continue
-        if ch == '"':
-            in_str = not in_str; continue
-        if in_str:
-            continue
-        if ch in "{[":
-            depth.append("}" if ch == "{" else "]")
-        elif ch in "}]":
-            if depth: depth.pop()
-        if ch == "," and not depth[1:]:  # safe cut point at top-of-array element boundary
-            last_safe = i
-    for cut in (len(s), last_safe):
-        frag = s[:cut].rstrip().rstrip(",")
-        if not frag:
-            continue
-        d = []
-        ins = es = False
-        for ch in frag:
-            if es: es = False; continue
-            if ch == "\\": es = True; continue
-            if ch == '"': ins = not ins; continue
-            if ins: continue
-            if ch in "{[": d.append("}" if ch == "{" else "]")
-            elif ch in "}]" and d: d.pop()
-        repaired = frag + ('"' if ins else "") + "".join(reversed(d))
-        try:
-            return json.loads(repaired)
-        except Exception:
-            continue
-    return None
-
-
 def _ask_json(prompt, max_tokens=8000):
-    msg = _client.messages.create(
-        model=MODEL, max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt + "\n\nReturn ONLY valid JSON, no prose, no fences."}])
+    try:
+        msg = _client.messages.create(
+            model=MODEL, max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt + "\n\nReturn ONLY valid JSON, no prose, no fences."}])
+    except Exception:
+        return None
     text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
     text = re.sub(r"^```(json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
-    return _salvage_json(text)
+    return salvage(text)
 
 
 def strategy(client_name, city, region, services, concerns, complaints, competitor_ad_intel, identity):
