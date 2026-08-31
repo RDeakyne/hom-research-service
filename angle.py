@@ -16,7 +16,11 @@ import angle_taxonomy as tax
 import seasonal
 
 MODEL = os.environ.get("ANGLE_MODEL", "claude-sonnet-4-6")
-_client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+# Identity-linked API keys must name the workspace they act in; plain workspace-scoped keys must NOT
+# send the header. Sending it only when ANTHROPIC_WORKSPACE_ID is set supports both key types.
+_WS = os.environ.get("ANTHROPIC_WORKSPACE_ID", "").strip()
+_client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"],
+                    **({"default_headers": {"anthropic-workspace-id": _WS}} if _WS else {}))
 
 try:
     with open(os.path.join(os.path.dirname(__file__), "angle_index.json")) as _f:
