@@ -42,21 +42,29 @@ POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "30"))
 def _poller():
     while True:
         try:
-            recs = base44._request("GET", f"{base44.BASE}/entities/{base44.ENTITY}",
-                                   params={"limit": 200}).json()
-            for r in (recs if isinstance(recs, list) else []):
+            resp = base44._request("GET", f"{base44.BASE}/entities/{base44.ENTITY}",
+                                   params={"status": "Requested", "limit": 50})
+            recs = resp.json()
+            if not isinstance(recs, list):
+                # e.g. an auth error from Base44 — never swallow this silently again (it hid a dead
+                # API key for ~6 weeks while every portal request sat at "Requested").
+                print(f"[poller] Base44 poll failed: HTTP {resp.status_code} {str(recs)[:300]}", flush=True)
+                recs = []
+            for r in recs:
                 if r.get("status") == "Requested" and r.get("client_id"):
                     cid = r["client_id"]
+                    print(f"[poller] picked up research request for {cid}", flush=True)
                     try:
                         base44.set_status(cid, "Running", "Picked up from portal request...")  # claim it
                         pipeline.run(cid)
                     except Exception as e:
+                        print(f"[poller] run failed for {cid}: {e!r}", flush=True)
                         try:
                             base44.set_status(cid, "Error", str(e)[:250])
                         except Exception:
                             pass
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[poller] poll loop error: {e!r}", flush=True)
         time.sleep(POLL_SECONDS)
 
 

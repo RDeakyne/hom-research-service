@@ -9,8 +9,10 @@ import os, time, httpx
 APP_ID = os.environ["BASE44_APP_ID"]
 KEY = os.environ["BASE44_API_KEY"]
 BASE = f'{os.environ.get("BASE44_BASE_URL", "https://app.base44.com")}/api/apps/{APP_ID}'
+# Base44 retired account API keys (Nov 2026) — a personal access token (b44u...) must go in an
+# Authorization Bearer header; the old `api_key:` header now returns 401/403.
 HEADERS = {
-    "api_key": KEY,
+    "Authorization": f"Bearer {KEY}",
     "Content-Type": "application/json",
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
 }
