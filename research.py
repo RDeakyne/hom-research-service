@@ -27,7 +27,10 @@ def _ask_json(prompt: str):
             model=MODEL, max_tokens=8000, tools=WEB,
             messages=[{"role": "user", "content": prompt + "\n\nReturn ONLY valid JSON, no prose, no markdown fences."}],
         )
-    except Exception:
+    except Exception as e:
+        # Logged, not swallowed: an empty-credit / bad-key error used to vanish here and the run still
+        # reported Done with blank competitor/concern/complaint sections.
+        print(f"[research] Claude API call failed: {e!r}"[:500], flush=True)
         return None
     text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
     text = re.sub(r"^```(json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()

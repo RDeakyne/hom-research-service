@@ -179,6 +179,10 @@ def run(client_id: str, log=print):
     # tier's zips (one paint job per household, not per person).
     _hh = lambda zs: sum(z.get("households_35_75", 0) for z in zs)
 
+    _blank = [lbl for lbl, v in (("competitors", comps), ("complaints", comps_complaints),
+                                  ("concerns", homeowner_concerns)) if not v]
+    _warn = f" — WARNING: web research returned nothing for {', '.join(_blank)} (check Anthropic API credits/key)" if _blank else ""
+
     payload = {
         "income_threshold": f"${income_threshold:,}",
         "metro_center_lat": mlat, "metro_center_lng": mlng,
@@ -199,7 +203,7 @@ def run(client_id: str, log=print):
                    "Reviews & USPs: competitor websites + Google/Yelp/BBB. Concerns: Reddit/forums via web search (flag where thin). "
                    "Competitor Meta ads = MANUAL CHECK. Household counts = Census owner-occupied, ages 35-75; pull reachable size from Meta Ads Manager. "
                    "Local competition: Google Places API (painting contractors within 25 mi of the market center; 'established' = >=50 Google reviews).",
-        "status": "Done", "status_note": f"{len(fund)} FUND / {len(expansion)} expansion / {len(scored)-len(fund)-len(expansion)} excluded",
+        "status": "Done", "status_note": f"{len(fund)} FUND / {len(expansion)} expansion / {len(scored)-len(fund)-len(expansion)} excluded{_warn}",
     }
     # Only write identity_analysis when it was computed (demo gate) — never sends the key for live
     # clients, so it can't fail an upsert even before the Base44 field exists globally.
@@ -240,6 +244,9 @@ def run(client_id: str, log=print):
 
         base44.set_status(client_id, "Running", "Finalizing...")
         note = f"{len(fund)} FUND / {len(expansion)} expansion / {len(scored)-len(fund)-len(expansion)} excluded"
+        note += _warn
+        if competitor_ad_intel is None or "failed" in str((competitor_ad_intel or {}).get("sourcing_note", "")).lower():
+            note += " — competitor ad teardown failed (check Manus API key)"
         if not meta_ad_strategy:
             note += " — ad strategy step skipped (re-run to retry)"
         updates = {"status": "Done", "status_note": note}
