@@ -73,6 +73,54 @@ def _iso(start):
         return ""
 
 
+def _thumb_src(a):
+    """Best still image for an ad: first image, else video poster, else first carousel card image."""
+    for im in a.get("images") or []:
+        if im.get("url"):
+            return im["url"]
+    for v in a.get("videos") or []:
+        if v.get("poster"):
+            return v["poster"]
+    for c in a.get("cards") or []:
+        for im in c.get("images") or []:
+            if im.get("url"):
+                return im["url"]
+        if c.get("videoPreviewImageUrl"):
+            return c["videoPreviewImageUrl"]
+    return ""
+
+
+def _library_url(a):
+    lid = a.get("libraryID")
+    return a.get("adLibraryUrl") or (f"https://www.facebook.com/ads/library/?id={lid}" if lid else "")
+
+
+def _page_library_url(page_id):
+    return (f"https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US"
+            f"&view_all_page_id={page_id}") if page_id else ""
+
+
+def _rehost(ads):
+    """Copy each ad's thumbnail to Base44 storage (FB CDN links expire in ~4 days). Sets a['_image']."""
+    import base44
+
+    def one(a):
+        src = _thumb_src(a)
+        if not src:
+            return
+        try:
+            r = httpx.get(src, timeout=30, follow_redirects=True)
+            ctype = r.headers.get("content-type", "image/jpeg").split(";")[0]
+            if r.status_code == 200 and ctype.startswith("image/"):
+                ext = "png" if "png" in ctype else "webp" if "webp" in ctype else "jpg"
+                a["_image"] = base44.upload_file(r.content, f"ad_{a.get('libraryID') or 'x'}.{ext}", ctype)
+        except Exception as e:
+            print(f"[adlib] thumbnail failed {a.get('libraryID')}: {e!r}"[:200], flush=True)
+
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        list(ex.map(one, ads))
+
+
 def _domain(url):
     m = re.search(r"https?://(?:www\.)?([^/?#]+)", url or "")
     return m.group(1).lower() if m else ""
@@ -140,7 +188,7 @@ def teardown(client_name, city, region, seeds, areas=None, log=print):
     # 2. FILTER — which brands are local residential painting contractors?
     listing = []
     for b, lst in by_brand.items():
-        sample = (lst[0].get("body") or "")[:220].replace("\n", " ")
+        sample = (lst[0].get("body") or "")[:400].replace("\n", " ")
         doms = sorted({_domain(x.get("linkUrl") or x.get("ctaUrl")) for x in lst} - {""})[:2]
         listing.append({"brand": b, "ads": len(lst), "sites": doms, "sample_ad": sample})
     verdict = _claude(f"""These Meta advertisers came back from Ad Library searches for painting contractors in {market}.
@@ -148,6 +196,8 @@ Keep ONLY advertisers that are residential/commercial PAINTING contractors that 
 Exclude: non-painters (windows, roofing, crafts, events, retail, lending, lead-gen aggregators), painters clearly
 in another city/state (franchise locations elsewhere, e.g. "CertaPro of Staten Island"), national brand pages with
 no local tie, and the client itself ({client_name}).
+If the sample ad copy or website names a city, county or state outside {market}, EXCLUDE it (e.g. an ad mentioning
+"Horry County" is South Carolina, not South Florida).
 Advertisers: {json.dumps(listing)}
 Return JSON: {{"keep": ["exact brand", ...]}}""", max_tokens=2000) or {}
     keep = [b for b in (verdict.get("keep") or []) if b in by_brand and client_name.lower() not in b.lower()]
@@ -157,23 +207,28 @@ Return JSON: {{"keep": ["exact brand", ...]}}""", max_tokens=2000) or {}
                                           f"{market}, but none were local painting contractors running Meta ads."}
 
     # 3. COUNT — per-advertiser inventory + longevity (deterministic).
-    facts, long_rows = [], []
+    facts, long_rows, show = [], [], {}
     for b in keep:
         lst = by_brand[b]
         for a in lst:
             a["_days"] = _days(a.get("startDate"), today)
-        oldest = max(lst, key=lambda x: x["_days"] or -1)
+        lst.sort(key=lambda x: -(x["_days"] or 0))
+        oldest = lst[0]
+        page_id = next((x.get("pageId") for x in lst if x.get("pageId")), "")
         facts.append({
             "name": b,
-            "facebook_page_url": f"https://www.facebook.com/{lst[0]['pageId']}" if lst[0].get("pageId") else "",
-            "page_unresolved": not lst[0].get("pageId"),
+            "facebook_page_url": f"https://www.facebook.com/{page_id}" if page_id else "",
+            "ad_library_url": _page_library_url(page_id),
+            "page_unresolved": not page_id,
             "ads_active": len(lst),
             "formats": sorted({(x.get("format") or "").lower() for x in lst} - {""}),
             "oldest_active_ad_started": _iso(oldest.get("startDate")),
             "oldest_active_ad_days": oldest["_days"] or 0,
         })
+        for a in lst[:6]:                      # gallery: up to 6 longest-running ads per advertiser
+            show[id(a)] = a
         seen_body = set()
-        for a in sorted(lst, key=lambda x: -(x["_days"] or 0)):
+        for a in lst:
             body = re.sub(r"\s+", " ", a.get("body") or "").strip()
             if not body or body[:80] in seen_body:
                 continue
@@ -181,9 +236,23 @@ Return JSON: {{"keep": ["exact brand", ...]}}""", max_tokens=2000) or {}
             long_rows.append({"advertiser": b, "start_date": _iso(a.get("startDate")),
                               "duration_days": a["_days"] or 0, "body": body[:600],
                               "headline": a.get("linkTitle") or "", "cta": a.get("ctaText") or "",
-                              "format": a.get("format") or ""})
+                              "format": a.get("format") or "", "_ad": a})
     long_rows.sort(key=lambda r: -r["duration_days"])
     long_rows = long_rows[:30]
+    for r in long_rows:
+        show[id(r["_ad"])] = r["_ad"]
+    _rehost(list(show.values()))
+    log(f"[adlib] {sum(1 for a in show.values() if a.get('_image'))}/{len(show)} ad thumbnails saved")
+
+    def _card(a):
+        return {"ad_library_url": _library_url(a), "image_url": a.get("_image", ""),
+                "format": (a.get("format") or "").lower(), "start_date": _iso(a.get("startDate")),
+                "duration_days": a.get("_days") or 0,
+                "headline": a.get("linkTitle") or "", "cta": a.get("ctaText") or "",
+                "body": re.sub(r"\s+", " ", a.get("body") or "").strip()[:300]}
+    for f in facts:
+        f["ads"] = [_card(a) for a in by_brand[f["name"]][:6]]
+    prompt_rows = [{k: v for k, v in r.items() if k != "_ad"} for r in long_rows]
 
     # 4. ANALYZE — Claude interprets the REAL copy; it may not add advertisers or ads.
     analysis = _claude(f"""You are tearing down competitor Meta ads for {client_name}, a painting contractor in {market}.
@@ -191,8 +260,8 @@ Below is REAL, currently-active ad data scraped from the Meta Ad Library. Days r
 {PROVEN_DAYS}+ days are PROVEN (advertisers don't keep paying for losers). Use ONLY this data — never invent ads,
 advertisers or offers. Quote hooks verbatim (the opening line of the ad copy).
 
-ADVERTISERS (facts): {json.dumps(facts)}
-DISTINCT ADS, longest-running first (index = position): {json.dumps(long_rows)}
+ADVERTISERS (facts): {json.dumps([{k: v for k, v in f.items() if k != 'ads'} for f in facts])}
+DISTINCT ADS, longest-running first (index = position): {json.dumps(prompt_rows)}
 
 Angle names to use where they fit:
 {tax.list_for_prompt()}
@@ -220,7 +289,9 @@ Return JSON:
         t = tags.get(i) or {}
         longevity.append({"advertiser": r["advertiser"], "start_date": r["start_date"],
                           "duration_days": r["duration_days"], "offer": t.get("offer", ""),
-                          "hook": t.get("hook") or r["body"].split(". ")[0][:200], "angle": t.get("angle", "")})
+                          "hook": t.get("hook") or r["body"].split(". ")[0][:200], "angle": t.get("angle", ""),
+                          "format": (r["format"] or "").lower(),
+                          "ad_library_url": _library_url(r["_ad"]), "image_url": r["_ad"].get("_image", "")})
     ws = analysis.get("whitespace") or {}
     proven = sum(1 for r in long_rows if r["duration_days"] >= PROVEN_DAYS)
     return {

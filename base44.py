@@ -85,3 +85,16 @@ def set_status(client_id: str, status: str, note: str = ""):
         _request("PUT", f"{BASE}/entities/{ENTITY}/{existing['id']}", json=body).raise_for_status()
     else:
         _request("POST", f"{BASE}/entities/{ENTITY}", json=body).raise_for_status()
+
+
+def upload_file(content: bytes, filename: str, content_type: str = "image/jpeg") -> str:
+    """Upload bytes to the app's public file storage (Core.UploadFile). Returns a permanent file_url,
+    or "" on failure. Used to re-host Ad Library thumbnails — Facebook CDN links expire in ~4 days."""
+    headers = {k: v for k, v in HEADERS.items() if k != "Content-Type"}   # multipart sets its own
+    headers["X-App-Id"] = APP_ID
+    try:
+        r = httpx.post(f"{BASE}/integration-endpoints/Core/UploadFile", headers=headers, timeout=60,
+                       files={"file": (filename, content, content_type)})
+        return (r.json() or {}).get("file_url", "") if r.status_code == 200 else ""
+    except Exception:
+        return ""
