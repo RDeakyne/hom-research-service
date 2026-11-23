@@ -1,7 +1,7 @@
 """Orchestrates the full Research Intelligence run for one client, then publishes to Base44.
 Mirrors the painter-market-research skill phases. Called by main.py (the /run endpoint)."""
 import os, re, math
-import base44, scoring, research, competition, manus, angle
+import base44, scoring, research, competition, manus, angle, adlib
 
 # --- v2 rollout gate (Identity Analysis, competitor ad teardown, angle engine) ---
 # During testing these features run ONLY for the demo client so live clients are untouched (no extra
@@ -221,8 +221,20 @@ def run(client_id: str, log=print):
 
     if v2:
         # Phase 2: competitor ad teardown via Manus (Meta Ad Library) — hands Manus the resolved pages.
-        base44.set_status(client_id, "Running", "Tearing down competitor ads in the Meta Ad Library (Manus)...")
-        competitor_ad_intel = manus.teardown(name, city, region, _competitor_seeds(comps, city, region), log=log)
+        # Apify scraper + Claude (adlib) replaced Manus in Nov 2026; Manus stays as a fallback only if
+        # APIFY_TOKEN is unset. Discovery keywords use the client's top FUND areas (real town names),
+        # not the business address (often a warehouse town / missing state).
+        base44.set_status(client_id, "Running", "Tearing down competitor ads in the Meta Ad Library...")
+        _areas = []
+        for z in sorted(fund, key=lambda x: -x["icp_match_score"]):
+            a = (z.get("area") or "").split(",")[0].strip()
+            if a and a not in _areas:
+                _areas.append(a)
+        if adlib.TOKEN:
+            competitor_ad_intel = adlib.teardown(name, city, region, _competitor_seeds(comps, city, region),
+                                                 areas=_areas[:3], log=log)
+        else:
+            competitor_ad_intel = manus.teardown(name, city, region, _competitor_seeds(comps, city, region), log=log)
         # PERSIST the teardown immediately — a later step's failure must not throw away this 15-min result.
         if competitor_ad_intel is not None:
             try:
@@ -245,8 +257,8 @@ def run(client_id: str, log=print):
         base44.set_status(client_id, "Running", "Finalizing...")
         note = f"{len(fund)} FUND / {len(expansion)} expansion / {len(scored)-len(fund)-len(expansion)} excluded"
         note += _warn
-        if competitor_ad_intel is None or "failed" in str((competitor_ad_intel or {}).get("sourcing_note", "")).lower():
-            note += " — competitor ad teardown failed (check Manus API key)"
+        if competitor_ad_intel is None or not (competitor_ad_intel or {}).get("advertisers"):
+            note += " — competitor ad teardown failed (see sourcing note)"
         if not meta_ad_strategy:
             note += " — ad strategy step skipped (re-run to retry)"
         updates = {"status": "Done", "status_note": note}
